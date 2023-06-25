@@ -1,0 +1,17 @@
+[package]
+name = "tqrs"
+version = "0.1.0"
+edition = "2021"
+description = "Command line tool tqdm in Rust"
+readme = "README.md"
+# repository = ""
+# documentation = ""
+authors = ["Aubrey Liu"]
+keywords = ["tqdm"]
+categories = []
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+clap = "4.3.8"
+tqdm = "0.5.0"
