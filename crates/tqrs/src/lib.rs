@@ -34,18 +34,20 @@ pub use style::Style;
 pub fn tqrs<Item, Iter: Iterator<Item = Item>>(iterable: Iter) -> ProgressBar<Item, Iter> {
     let id = ID.fetch_add(1, sync::atomic::Ordering::SeqCst);
 
-    let mut bars = bars().lock().unwrap();
-    bars.insert(
-        id,
-        Info {
-            begin: time::SystemTime::now(),
-            config: Config::default(),
+    {
+        let mut bars = bars().lock().unwrap();
+        bars.insert(
+            id,
+            Info {
+                begin: time::SystemTime::now(),
+                config: Config::default(),
 
-            nitem: 0usize,
-            total: iterable.size_hint().1,
-        },
-    );
-
+                nitem: 0usize,
+                total: iterable.size_hint().1,
+            },
+        );
+    }
+    
     drop(refresh());
 
     ProgressBar {
