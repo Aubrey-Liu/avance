@@ -225,6 +225,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "once_cell"
+version = "1.18.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dd8b5dd2ae5ed71462c540258bedcb51965123ad7e7ccf4b9a8cafaa4a63576d"
+
+[[package]]
 name = "parking_lot"
 version = "0.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -319,20 +325,21 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "73473c0e59e6d5812c5dfe2a064a6444949f089e20eec9a2e5506596494e4623"
 
 [[package]]
-name = "tqdm"
-version = "0.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "701634e797808d8315150be4858059194262210f358e835cf8ae38a3f37e0acf"
-dependencies = [
- "crossterm",
-]
-
-[[package]]
 name = "tqrs"
 version = "0.1.0"
 dependencies = [
+ "crossterm",
+ "once_cell",
+ "version_check",
+]
+
+[[package]]
+name = "tqrs-cli"
+version = "0.1.0"
+dependencies = [
  "clap",
- "tqdm",
+ "tqrs",
+ "version",
 ]
 
 [[package]]
@@ -340,6 +347,18 @@ name = "utf8parse"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "711b9620af191e0cdc7468a8d14e709c3dcdb115b36f838e601583af800a370a"
+
+[[package]]
+name = "version"
+version = "3.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3a449064fee414fcc201356a3e6c1510f6c8829ed28bb06b91c54ebe208ce065"
+
+[[package]]
+name = "version_check"
+version = "0.9.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "49874b5167b65d7193b8aba1567f5c7d93d001cafc34600cee003eda787e483f"
 
 [[package]]
 name = "wasi"

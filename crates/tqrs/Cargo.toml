@@ -1,0 +1,18 @@
+[package]
+name = "tqrs"
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/Aubrey-Liu/tqrs"
+description = "tqrs is a lightweight progress bar library."
+readme = "../../README.md"
+authors = ["Aubrey Liu <aubreyliu233@gmail.com>"]
+keywords = ["progress", "progressbar", "tqdm"]
+categories = ["command-line-utilities"]
+
+[dependencies]
+crossterm = "0.25"
+once_cell = "1.18.0"
+
+[build-dependencies]
+version_check = "0.9"
