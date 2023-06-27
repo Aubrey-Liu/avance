@@ -13,6 +13,4 @@ categories = ["command-line-utilities"]
 [dependencies]
 crossterm = "0.25"
 once_cell = "1.18.0"
-
-[build-dependencies]
-version_check = "0.9"
+strum = { version = "0.25.0", features = ["derive"] }

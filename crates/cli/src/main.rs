@@ -1,5 +1,4 @@
 #![allow(unused)]
-use avance::avance;
 use clap::{Arg, Command};
 use version::version;
 
@@ -23,4 +22,6 @@ The number of expected iterations.
 If unspecified, only basic progress bar are displayed",
         ))
         .get_matches();
+
+    unimplemented!("This binary hasn't been implemented yet")
 }

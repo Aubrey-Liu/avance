@@ -1,24 +1,13 @@
-//! Progress bar style enumeration
-//!
-//! - `ASCII`: Pure ASCII bar with `"0123456789#"`
-//! - `Block`: Common bar with unicode characters `" ▏▎▍▌▋▊▉█"`
-//! - `Balloon`: Simulate balloon explosion with `".oO@*"`.
-//!
+//! TODO: documentation
+use strum::AsRefStr;
 
-#[derive(Default)]
+#[derive(Debug, Clone, Copy, Default, AsRefStr)]
 pub enum Style {
     #[default]
+    #[strum(serialize = "0123456789#")]
     ASCII,
+    #[strum(serialize = " ▏▎▍▌▋▊▉█")]
     Block,
+    #[strum(serialize = ".oO@*")]
     Balloon,
-}
-
-impl ToString for Style {
-    fn to_string(&self) -> String {
-        String::from(match self {
-            Style::ASCII => "0123456789#",
-            Style::Block => " ▏▎▍▌▋▊▉█",
-            Style::Balloon => ".oO@*",
-        })
-    }
 }
