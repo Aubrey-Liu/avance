@@ -1,31 +1,21 @@
 use crate::*;
 
 #[test]
-
 fn base() {
-    tqrs(0..100).for_each(|_| thread::sleep(time::Duration::from_secs_f64(0.01)));
+    avance(0..100).for_each(|_| thread::sleep(time::Duration::from_secs_f64(0.01)));
 }
 
 #[test]
 #[ignore]
-
-fn very_slow() {
-    tqrs(0..100).for_each(|_| thread::sleep(time::Duration::from_secs_f64(10.0)));
-}
-
-#[test]
-#[ignore]
-
 fn infinite() {
-    for _ in tqrs(0..).desc(Some("infinite")) {
+    for _ in avance(0..).desc(Some("infinite")) {
         thread::sleep(time::Duration::from_secs_f64(0.1));
     }
 }
 
 #[test]
-
 fn breaking() {
-    for i in tqrs(0..100).desc(Some("breaking")) {
+    for i in (0..100).avance().desc(Some("breaking")) {
         thread::sleep(time::Duration::from_secs_f64(0.1));
         if i % 10 == 0 {
             println!("break #{}", i);
@@ -34,7 +24,6 @@ fn breaking() {
 }
 
 #[test]
-
 fn parallel() {
     let threads: Vec<_> = [
         (200, Style::ASCII),
@@ -45,7 +34,7 @@ fn parallel() {
     .enumerate()
     .map(|(idx, (its, style))| {
         thread::spawn(move || {
-            for _i in tqrs(0..its)
+            for _i in avance(0..its)
                 .style(style)
                 .width(Some(82))
                 .desc(Some(format!("par {}", idx).as_str()))
@@ -62,7 +51,6 @@ fn parallel() {
 }
 
 #[test]
-
 fn performance() {
     const N: usize = 100000000;
     fn speed(start: time::SystemTime) -> f64 {
@@ -79,6 +67,6 @@ fn performance() {
     println!("baseline: {:.02}it/s", speed(start));
 
     let start = time::SystemTime::now();
-    for _i in tqrs(0..N) {}
+    for _i in avance(0..N) {}
     println!("w/ tqdm: {:.02}it/s", speed(start));
 }

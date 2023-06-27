@@ -1,12 +1,3 @@
-//! Rust implementation of Python command line progress bar tool [tqdm](https://github.com/tqdm/tqdm/).
-//!
-//! From original documentation:
-//! > tqdm derives from the Arabic word taqaddum (تقدّم) which can mean "progress," and is an abbreviation for "I love you so much" in Spanish (te quiero demasiado).
-//! > Instantly make your loops show a smart progress meter - just wrap any iterable with tqdm(iterable), and you're done!
-//!
-//! This crate provides a wrapper [Iterator]. It controls multiple progress bars when `next` is called.
-//! Most traits are bypassed with [auto-dereference](https://doc.rust-lang.org/std/ops/trait.Deref.html), so original methods can be called with no overhead.
-//!
 
 use std::*;
 
@@ -21,17 +12,13 @@ mod test;
 pub mod style;
 pub use style::Style;
 
-/* -------------------------------------------------------------------------- */
-/*                                    TQDM                                    */
-/* -------------------------------------------------------------------------- */
-
 /* -------------------------------- FUNCTION -------------------------------- */
 
 ///
 ///
 /// Panics
 
-pub fn tqrs<Item, Iter: Iterator<Item = Item>>(iterable: Iter) -> ProgressBar<Item, Iter> {
+pub fn avance<Item, Iter: Iterator<Item = Item>>(iterable: Iter) -> ProgressBar<Item, Iter> {
     let id = ID.fetch_add(1, sync::atomic::Ordering::SeqCst);
 
     {
@@ -61,7 +48,6 @@ pub fn tqrs<Item, Iter: Iterator<Item = Item>>(iterable: Iter) -> ProgressBar<It
 }
 
 /// Manually refresh all progress bars
-
 pub fn refresh() -> io::Result<()> {
     let mut output = io::stderr();
 
@@ -90,41 +76,6 @@ pub fn refresh() -> io::Result<()> {
 }
 
 /* --------------------------------- STRUCT --------------------------------- */
-
-/// Iterator wrapper that updates progress bar on `next`
-///
-///
-/// ## Examples
-///
-/// - Basic Usage
-/// ```
-/// for _ in tqdm(0..100) {
-///     thread::sleep(Duration::from_millis(10));
-/// }
-/// ```
-///
-/// - Composition
-/// ```
-/// for _ in tqdm(tqdm(0..100).take(50)) {
-///     thread::sleep(Duration::from_millis(10));
-/// }
-/// ```
-///
-/// - Multi-threading
-/// ```
-/// let threads: Vec<_> = [200, 400, 100].iter().map(|its| {
-///         std::thread::spawn(move || {
-///             for _ in tqdm(0..*its) {
-///                 thread::sleep(Duration::from_millis(10));
-///             }
-///         })
-///     })
-///     .collect();
-///
-/// for handle in threads {
-///     handle.join().unwrap();
-/// }
-/// ```
 
 pub struct ProgressBar<Item, Iter: Iterator<Item = Item>> {
     /// Iterable wrapped
@@ -241,29 +192,16 @@ impl<Item, Iter: Iterator<Item = Item>> Drop for ProgressBar<Item, Iter> {
 
 /* ---------------------------------- TRAIT --------------------------------- */
 
-/// Trait that allows `.tqdm()` method chaining, equivalent to `tqdm::tqdm(iter)`
-///
-///
-/// ## Examples
-/// ```
-/// use tqdm::Iter;
-/// (0..).take(1000).tqdm()
-/// ```
-
 pub trait Iter<Item>: Iterator<Item = Item> {
-    fn tqrs(self) -> ProgressBar<Item, Self>
+    fn avance(self) -> ProgressBar<Item, Self>
     where
         Self: Sized,
     {
-        tqrs(self)
+        avance(self)
     }
 }
 
 impl<Item, Iter: Iterator<Item = Item>> crate::Iter<Item> for Iter {}
-
-/* -------------------------------------------------------------------------- */
-/*                                   PRIVATE                                  */
-/* -------------------------------------------------------------------------- */
 
 /* --------------------------------- STATIC --------------------------------- */
 
@@ -288,8 +226,6 @@ pub struct Config {
     pub width: Option<usize>,
     pub style: style::Style,
 }
-
-/* ---------------------------------- INFO ---------------------------------- */
 
 struct Info {
     begin: time::SystemTime,

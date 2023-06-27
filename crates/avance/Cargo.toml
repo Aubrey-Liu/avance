@@ -1,13 +1,13 @@
 [package]
-name = "tqrs"
+name = "avance"
 version = "0.1.0"
 edition = "2021"
 license = "MIT OR Apache-2.0"
-repository = "https://github.com/Aubrey-Liu/tqrs"
-description = "tqrs is a lightweight progress bar library."
-readme = "../../README.md"
+repository = "https://github.com/Aubrey-Liu/avance"
+description = "avance is a lightweight progress bar library."
+readme = "README.md"
 authors = ["Aubrey Liu <aubreyliu233@gmail.com>"]
-keywords = ["progress", "progressbar", "tqdm"]
+keywords = ["progress", "progressbar"]
 categories = ["command-line-utilities"]
 
 [dependencies]

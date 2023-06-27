@@ -2,18 +2,14 @@
 //!
 //! - `ASCII`: Pure ASCII bar with `"0123456789#"`
 //! - `Block`: Common bar with unicode characters `" ▏▎▍▌▋▊▉█"`
-//! - `Balloon`: Simulate balloon explosion with `".oO@*"`. Inspired by [stackoverflow](https://stackoverflow.com/a/2685509/17570263)
+//! - `Balloon`: Simulate balloon explosion with `".oO@*"`.
 //!
-//! Other styles are open for [contribution](https://github.com/mrlazy1708/tqdm/issues/1).
 
 #[derive(Default)]
-
 pub enum Style {
-    ASCII,
-
     #[default]
+    ASCII,
     Block,
-
     Balloon,
 }
 
