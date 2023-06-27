@@ -1,13 +1,18 @@
 //! TODO: documentation
 
-use crossterm::{cursor::MoveUp, style::Print, QueueableCommand};
+use crossterm::{
+    cursor::MoveUp,
+    style::Print,
+    terminal::{Clear, ClearType},
+    QueueableCommand,
+};
 use std::{
     cmp::min,
-    collections::BTreeSet,
+    collections::HashMap,
     fmt::{Display, Formatter},
     io::{Result, Write},
     sync::{
-        atomic::{AtomicU16, Ordering},
+        atomic::{AtomicU16, AtomicU64, Ordering},
         Arc, Mutex, OnceLock,
     },
     time::Instant,
@@ -16,7 +21,7 @@ use std::{
 use crate::style::Style;
 
 pub struct AvanceBar {
-    state: Arc<Mutex<State>>,
+    state: AtomicState,
 }
 
 impl AvanceBar {
@@ -24,9 +29,7 @@ impl AvanceBar {
         let bar = AvanceBar {
             state: Arc::new(Mutex::new(State::new(Some(total)))),
         };
-
-        drop(bar.refresh());
-
+        bar.refresh();
         bar
     }
 
@@ -36,11 +39,35 @@ impl AvanceBar {
         }
     }
 
+    pub fn set_description(&self, desc: impl ToString) {
+        {
+            let mut state = self.state.lock().unwrap();
+            state.config.desc = Some(desc.to_string());
+        }
+        self.refresh();
+    }
+
+    pub fn set_width(&self, width: u16) {
+        {
+            let mut state = self.state.lock().unwrap();
+            state.config.width = Some(width);
+        }
+        self.refresh();
+    }
+
+    pub fn set_style(&self, style: Style) {
+        {
+            let mut state = self.state.lock().unwrap();
+            state.config.style = style;
+        }
+        self.refresh();
+    }
+
     /// Refresh the progress bar instantly
-    pub fn refresh(&self) -> Result<()> {
+    pub fn refresh(&self) {
         let state = self.state.lock().unwrap();
 
-        state.draw(None)
+        drop(state.draw(None))
     }
 
     pub fn update(&self, n: u64) {
@@ -52,12 +79,13 @@ impl AvanceBar {
     pub fn close(&self) -> Result<()> {
         let mut state = self.state.lock().unwrap();
 
-        reposition(state.pos);
+        reposition(state.id);
+
         state.force_update();
         state.draw(Some(0))?;
 
         let mut target = std::io::stderr().lock();
-        write!(target, "\n")
+        writeln!(target)
     }
 }
 
@@ -71,8 +99,8 @@ struct State {
     config: Config,
     begin: Instant,
     last: Instant,
-    refresh: f64,
-    pos: u16,
+    interval: f64,
+    id: PosID,
     n: u64,
     cached: u64,
     total: Option<u64>,
@@ -84,8 +112,8 @@ impl State {
             config: Config::new(),
             begin: Instant::now(),
             last: Instant::now(),
-            refresh: 1.0 / 15.0,
-            pos: next_free_pos(),
+            interval: 1.0 / 15.0,
+            id: next_free_pos(),
             n: 0,
             cached: 0,
             total,
@@ -97,7 +125,8 @@ impl State {
 
         if matches!(self.total, Some(total) if self.n + self.cached >= total) {
             self.force_update();
-        } else if self.last.elapsed().as_secs_f64() >= self.refresh {
+            drop(self.draw(None));
+        } else if self.last.elapsed().as_secs_f64() >= self.interval {
             self.n += self.cached;
             self.cached = 0;
             self.last = Instant::now();
@@ -118,17 +147,37 @@ impl State {
     fn draw(&self, pos: Option<u16>) -> Result<()> {
         let mut target = std::io::stderr().lock();
 
-        let pos = if let Some(pos) = pos { pos } else { self.pos };
+        let pos = if let Some(pos) = pos {
+            pos
+        } else {
+            self.get_pos()
+        };
+
+        let nrows = NROWS.load(Ordering::Relaxed);
+        if pos >= nrows {
+            return Ok(());
+        }
 
         if pos != 0 {
-            target.queue(Print("\n".repeat(self.pos as usize)))?;
-            target.queue(Print(self))?;
-            target.queue(MoveUp(self.pos))?;
+            target.queue(Print("\n".repeat(pos as usize)))?;
+            target.queue(Clear(ClearType::CurrentLine))?;
+            if pos == nrows - 1 {
+                target.queue(Print("... (more hidden) ..."))?;
+            } else {
+                target.queue(Print(self))?;
+            }
+            target.queue(MoveUp(pos))?;
         } else {
+            target.queue(Clear(ClearType::CurrentLine))?;
             target.write_fmt(format_args!("\r{}", self))?;
         }
 
         target.flush()
+    }
+
+    fn get_pos(&self) -> Pos {
+        let positions = positions().lock().unwrap();
+        *positions.get(&self.id).unwrap()
     }
 }
 
@@ -202,55 +251,63 @@ impl Config {
     }
 }
 
+type AtomicState = Arc<Mutex<State>>;
+type PosID = u64;
+type Pos = u16;
+
+static NEXTID: AtomicU64 = AtomicU64::new(0);
 static NROWS: AtomicU16 = AtomicU16::new(20);
-static POSITIONS: OnceLock<Mutex<BTreeSet<u16>>> = OnceLock::new();
+static POSITIONS: OnceLock<Mutex<HashMap<PosID, Pos>>> = OnceLock::new();
 
-fn positions() -> &'static Mutex<BTreeSet<u16>> {
-    POSITIONS.get_or_init(|| Mutex::new(BTreeSet::new()))
+fn positions() -> &'static Mutex<HashMap<PosID, Pos>> {
+    POSITIONS.get_or_init(|| Mutex::new(HashMap::new()))
 }
 
-fn next_free_pos() -> u16 {
+fn next_free_pos() -> PosID {
     let mut positions = positions().lock().unwrap();
-    let mut next_pos = 0;
-    positions.iter().find(|&&pos| {
-        if pos == next_pos {
-            next_pos += 1;
-            false
-        } else {
-            true
-        }
-    });
-    positions.insert(next_pos);
+    let next_id = NEXTID.fetch_add(1, Ordering::Relaxed);
+    let next_pos = positions.values().max().map(|n| n + 1).unwrap_or(0);
+    positions.insert(next_id, next_pos);
 
-    next_pos
+    next_id
 }
 
-fn reposition(pos: u16) {
+fn reposition(id: PosID) {
     let mut positions = positions().lock().unwrap();
 
-    if pos >= NROWS.load(Ordering::Relaxed) - 1 {
-        positions.remove(&pos);
+    let closed_pos = *positions.get(&id).unwrap();
+    if closed_pos >= NROWS.load(Ordering::Relaxed) - 1 {
+        positions.remove(&id);
         return;
     }
 
-    if let Some(&overflowed_pos) = positions
+    if let Some((&chosen_id, _)) = positions
         .iter()
-        .find(|&&pos| pos >= NROWS.load(Ordering::Relaxed) - 1)
+        .find(|(_, &pos)| pos >= NROWS.load(Ordering::Relaxed) - 1)
     {
-        positions.remove(&overflowed_pos);
+        positions.remove(&id);
+        *positions.get_mut(&chosen_id).unwrap() = closed_pos;
     } else {
-        positions.remove(&pos);
+        // If we can't find an overflowed bar, move all bars upwards when bar.pos > pos
+        positions.remove(&id);
+        positions.iter_mut().for_each(|(_, pos)| {
+            if *pos > closed_pos {
+                *pos = *pos - 1;
+            }
+        });
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use std::time::Duration;
-
     use crate::{
         bar::{next_free_pos, positions},
+        style::Style,
         AvanceBar,
     };
+    use std::{sync::atomic::Ordering, thread, time::Duration};
+
+    use super::NROWS;
 
     #[test]
     fn check_next_free_pos() {
@@ -277,15 +334,41 @@ mod tests {
     }
 
     #[test]
+    fn bar_with_width() {
+        let bar = AvanceBar::new(100);
+        bar.set_width(60);
+
+        for _ in 0..100 {
+            bar.update(1);
+
+            std::thread::sleep(Duration::from_millis(50));
+        }
+    }
+
+    #[test]
+    fn misc() {
+        let bar = AvanceBar::new(100);
+        bar.set_description("avance");
+        bar.set_style(Style::Balloon);
+        bar.set_width(76);
+
+        for _ in 0..100 {
+            bar.update(1);
+
+            std::thread::sleep(Duration::from_millis(50));
+        }
+    }
+
+    #[test]
     fn single_bar_multi_threads() {
         let bar = AvanceBar::new(300);
 
         std::thread::scope(|t| {
             t.spawn(|| {
-                for _ in 0..100 {
+                for _ in 0..50 {
                     bar.update(1);
 
-                    std::thread::sleep(Duration::from_millis(50));
+                    std::thread::sleep(Duration::from_millis(100));
                 }
             });
             t.spawn(|| {
@@ -296,10 +379,10 @@ mod tests {
                 }
             });
             t.spawn(|| {
-                for _ in 0..100 {
+                for _ in 0..150 {
                     bar.update(1);
 
-                    std::thread::sleep(Duration::from_millis(50));
+                    std::thread::sleep(Duration::from_millis(10));
                 }
             });
         });
@@ -333,5 +416,28 @@ mod tests {
                 }
             });
         });
+    }
+
+    #[test]
+    fn overflowing() {
+        NROWS.swap(5, Ordering::Relaxed);
+
+        let threads: Vec<_> = (0..8)
+            .map(|i| {
+                thread::spawn(move || {
+                    let n = 80 * (i % 4 + 1);
+                    let bar = AvanceBar::new(n);
+                    for _ in 0..n {
+                        bar.update(1);
+
+                        std::thread::sleep(Duration::from_millis(15 * (i % 4 + 1)));
+                    }
+                })
+            })
+            .collect();
+
+        for t in threads {
+            t.join().unwrap();
+        }
     }
 }

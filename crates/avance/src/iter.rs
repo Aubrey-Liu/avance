@@ -56,3 +56,18 @@ pub fn avance<Iter: Iterator>(iter: Iter) -> AvanceIter<Iter> {
         iter,
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::time::Duration;
+    use std::thread;
+
+    use crate::AvanceIterator;
+
+    #[test]
+    fn avance_iter() {
+        for _ in (0..100).avance() {
+            thread::sleep(Duration::from_millis(20));
+        }
+    }
+}
