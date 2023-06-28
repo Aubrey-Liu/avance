@@ -154,22 +154,27 @@ impl State {
         };
 
         let nrows = NROWS.load(Ordering::Relaxed);
-        let nrows = crossterm::terminal::size().map_or(nrows, |(_, r)| min(r, nrows));
+        let (ncols, nrows) =
+            crossterm::terminal::size().map_or((80, nrows), |(c, r)| (c, min(r, nrows)));
         if pos >= nrows {
             return Ok(());
         }
 
+        let msg = if pos == nrows - 1 {
+            "... (more hidden) ...".to_string()
+        } else {
+            format!("{}", self)
+        };
+        let msg = format!("{:1$}", msg, ncols as usize);
+        
         target.queue(Hide)?;
         if pos != 0 {
             target.queue(Print("\n".repeat(pos as usize)))?;
-            if pos == nrows - 1 {
-                target.queue(Print("... (more hidden) ..."))?;
-            } else {
-                target.queue(Print(self))?;
-            }
+            target.queue(Print(msg))?;
             target.queue(MoveUp(pos))?;
         } else {
-            target.write_fmt(format_args!("\r{}", self))?;
+            target.queue(Print("\r"))?;
+            target.queue(Print(msg))?;
         }
         target.queue(Show)?;
         target.flush()
@@ -316,7 +321,7 @@ fn reposition(id: PosID) {
         positions.remove(&id);
         positions.iter_mut().for_each(|(_, pos)| {
             if *pos > closed_pos {
-                *pos = *pos - 1;
+                *pos -= 1;
             }
         });
     }
