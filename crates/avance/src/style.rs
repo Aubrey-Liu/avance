@@ -1,4 +1,5 @@
 //! TODO: documentation
+
 use strum::AsRefStr;
 
 #[derive(Debug, Clone, Copy, Default, AsRefStr)]

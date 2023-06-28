@@ -1,7 +1,7 @@
 //! TODO: documentation
 
 use crossterm::{
-    cursor::MoveUp,
+    cursor::{Hide, MoveUp, Show},
     style::Print,
     terminal::{Clear, ClearType},
     QueueableCommand,
@@ -51,7 +51,9 @@ impl AvanceBar {
         {
             let mut state = self.state.lock().unwrap();
             state.config.width = Some(width);
+            drop(state.clear());
         }
+
         self.refresh();
     }
 
@@ -63,19 +65,21 @@ impl AvanceBar {
         self.refresh();
     }
 
-    /// Refresh the progress bar instantly
+    /// Manually refresh the progress bar
     pub fn refresh(&self) {
         let state = self.state.lock().unwrap();
 
         drop(state.draw(None))
     }
 
+    /// Make some progress
     pub fn update(&self, n: u64) {
         let mut state = self.state.lock().unwrap();
 
         state.update(n);
     }
 
+    /// Manually stop the progress bar
     pub fn close(&self) -> Result<()> {
         let mut state = self.state.lock().unwrap();
 
@@ -154,13 +158,14 @@ impl State {
         };
 
         let nrows = NROWS.load(Ordering::Relaxed);
+        let nrows = crossterm::terminal::size().map_or(nrows, |(_, r)| min(r, nrows));
         if pos >= nrows {
             return Ok(());
         }
 
+        target.queue(Hide)?;
         if pos != 0 {
             target.queue(Print("\n".repeat(pos as usize)))?;
-            target.queue(Clear(ClearType::CurrentLine))?;
             if pos == nrows - 1 {
                 target.queue(Print("... (more hidden) ..."))?;
             } else {
@@ -168,10 +173,32 @@ impl State {
             }
             target.queue(MoveUp(pos))?;
         } else {
-            target.queue(Clear(ClearType::CurrentLine))?;
             target.write_fmt(format_args!("\r{}", self))?;
         }
+        target.queue(Show)?;
+        target.flush()
+    }
 
+    fn clear(&self) -> Result<()> {
+        let mut target = std::io::stderr().lock();
+
+        let pos = self.get_pos();
+
+        let nrows = NROWS.load(Ordering::Relaxed);
+        let nrows = crossterm::terminal::size().map_or(nrows, |(_, r)| min(r, nrows));
+        if pos >= nrows {
+            return Ok(());
+        }
+
+        target.queue(Hide)?;
+        if pos != 0 {
+            target.queue(Print("\n".repeat(pos as usize)))?;
+            target.queue(Clear(ClearType::CurrentLine))?;
+            target.queue(MoveUp(pos))?;
+        } else {
+            target.queue(Clear(ClearType::CurrentLine))?;
+        }
+        target.queue(Show)?;
         target.flush()
     }
 
@@ -285,6 +312,7 @@ fn reposition(id: PosID) {
         .iter()
         .find(|(_, &pos)| pos >= NROWS.load(Ordering::Relaxed) - 1)
     {
+        // Move an overflowed bar up to fill the blank
         positions.remove(&id);
         *positions.get_mut(&chosen_id).unwrap() = closed_pos;
     } else {
@@ -300,37 +328,27 @@ fn reposition(id: PosID) {
 
 #[cfg(test)]
 mod tests {
-    use crate::{
-        bar::{next_free_pos, positions},
-        style::Style,
-        AvanceBar,
-    };
     use std::{sync::atomic::Ordering, thread, time::Duration};
 
     use super::NROWS;
+    use crate::{style::Style, AvanceBar};
 
-    #[test]
-    fn check_next_free_pos() {
-        assert_eq!(next_free_pos(), 0);
-        assert_eq!(next_free_pos(), 1);
-        assert_eq!(next_free_pos(), 2);
+    fn progress_bar_ref(bar: &AvanceBar, n: u64, interval: u64) {
+        for _ in 0..n {
+            bar.update(1);
 
-        {
-            let mut positions = positions().lock().unwrap();
-            positions.remove(&1);
+            std::thread::sleep(Duration::from_millis(interval));
         }
+    }
 
-        assert_eq!(next_free_pos(), 1);
+    fn progress_bar(n: u64, interval: u64) {
+        let bar = AvanceBar::new(n);
+        progress_bar_ref(&bar, n, interval);
     }
 
     #[test]
     fn basic_bar() {
-        let bar = AvanceBar::new(100);
-        for _ in 0..100 {
-            bar.update(1);
-
-            std::thread::sleep(Duration::from_millis(50));
-        }
+        progress_bar(100, 20);
     }
 
     #[test]
@@ -338,11 +356,7 @@ mod tests {
         let bar = AvanceBar::new(100);
         bar.set_width(60);
 
-        for _ in 0..100 {
-            bar.update(1);
-
-            std::thread::sleep(Duration::from_millis(50));
-        }
+        progress_bar_ref(&bar, 100, 20);
     }
 
     #[test]
@@ -352,11 +366,7 @@ mod tests {
         bar.set_style(Style::Balloon);
         bar.set_width(76);
 
-        for _ in 0..100 {
-            bar.update(1);
-
-            std::thread::sleep(Duration::from_millis(50));
-        }
+        progress_bar_ref(&bar, 100, 20);
     }
 
     #[test]
@@ -364,76 +374,27 @@ mod tests {
         let bar = AvanceBar::new(300);
 
         std::thread::scope(|t| {
-            t.spawn(|| {
-                for _ in 0..50 {
-                    bar.update(1);
-
-                    std::thread::sleep(Duration::from_millis(100));
-                }
-            });
-            t.spawn(|| {
-                for _ in 0..100 {
-                    bar.update(1);
-
-                    std::thread::sleep(Duration::from_millis(50));
-                }
-            });
-            t.spawn(|| {
-                for _ in 0..150 {
-                    bar.update(1);
-
-                    std::thread::sleep(Duration::from_millis(10));
-                }
-            });
+            t.spawn(|| progress_bar_ref(&bar, 50, 80));
+            t.spawn(|| progress_bar_ref(&bar, 100, 40));
+            t.spawn(|| progress_bar_ref(&bar, 150, 20));
         });
     }
 
     #[test]
     fn multiple_bars() {
         std::thread::scope(|t| {
-            t.spawn(|| {
-                let bar = AvanceBar::new(150);
-                for _ in 0..150 {
-                    bar.update(1);
-
-                    std::thread::sleep(Duration::from_millis(30));
-                }
-            });
-            t.spawn(|| {
-                let bar = AvanceBar::new(300);
-                for _ in 0..300 {
-                    bar.update(1);
-
-                    std::thread::sleep(Duration::from_millis(30));
-                }
-            });
-            t.spawn(|| {
-                let bar = AvanceBar::new(500);
-                for _ in 0..500 {
-                    bar.update(1);
-
-                    std::thread::sleep(Duration::from_millis(30));
-                }
-            });
+            t.spawn(|| progress_bar(150, 30));
+            t.spawn(|| progress_bar(300, 25));
+            t.spawn(|| progress_bar(500, 15));
         });
     }
 
     #[test]
     fn overflowing() {
-        NROWS.swap(5, Ordering::Relaxed);
+        NROWS.swap(10, Ordering::Relaxed);
 
-        let threads: Vec<_> = (0..8)
-            .map(|i| {
-                thread::spawn(move || {
-                    let n = 80 * (i % 4 + 1);
-                    let bar = AvanceBar::new(n);
-                    for _ in 0..n {
-                        bar.update(1);
-
-                        std::thread::sleep(Duration::from_millis(15 * (i % 4 + 1)));
-                    }
-                })
-            })
+        let threads: Vec<_> = (0..15)
+            .map(|i| thread::spawn(move || progress_bar(80 * (i % 4 + 1), 15 * (i % 4 + 1))))
             .collect();
 
         for t in threads {

@@ -59,8 +59,7 @@ pub fn avance<Iter: Iterator>(iter: Iter) -> AvanceIter<Iter> {
 
 #[cfg(test)]
 mod tests {
-    use std::time::Duration;
-    use std::thread;
+    use std::{thread, time::Duration};
 
     use crate::AvanceIterator;
 
