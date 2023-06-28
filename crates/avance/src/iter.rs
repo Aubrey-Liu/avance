@@ -93,4 +93,14 @@ mod tests {
             thread::sleep(Duration::from_millis(20));
         }
     }
+
+    #[test]
+    fn infinity() {
+        for i in (0..).avance() {
+            if i > 200 {
+                break;
+            }
+            thread::sleep(Duration::from_millis(20));
+        }
+    }
 }

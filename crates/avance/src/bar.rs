@@ -2,7 +2,8 @@
 
 use crossterm::cursor::{Hide, MoveUp, Show};
 use crossterm::style::Print;
-use crossterm::terminal::{Clear, ClearType};
+use crossterm::terminal::{self, Clear, ClearType};
+use crossterm::tty::IsTty;
 use crossterm::QueueableCommand;
 use std::cmp::min;
 use std::collections::HashMap;
@@ -36,29 +37,25 @@ impl AvanceBar {
     }
 
     pub fn set_description(&self, desc: impl ToString) {
-        {
-            let mut state = self.state.lock().unwrap();
-            state.config.desc = Some(desc.to_string());
-        }
-        self.refresh();
+        let mut state = self.state.lock().unwrap();
+        state.config.desc = Some(desc.to_string());
+
+        drop(state.draw(None));
     }
 
     pub fn set_width(&self, width: u16) {
-        {
-            let mut state = self.state.lock().unwrap();
-            state.config.width = Some(width);
-            drop(state.clear());
-        }
+        let mut state = self.state.lock().unwrap();
+        state.config.width = Some(width);
 
-        self.refresh();
+        drop(state.clear());
+        drop(state.draw(None));
     }
 
     pub fn set_style(&self, style: Style) {
-        {
-            let mut state = self.state.lock().unwrap();
-            state.config.style = style;
-        }
-        self.refresh();
+        let mut state = self.state.lock().unwrap();
+        state.config.style = style;
+
+        drop(state.draw(None));
     }
 
     /// Manually refresh the progress bar
@@ -85,7 +82,11 @@ impl AvanceBar {
         state.draw(Some(0))?;
 
         let mut target = std::io::stderr().lock();
-        writeln!(target)
+        if target.is_tty() {
+            writeln!(target)
+        } else {
+            Ok(())
+        }
     }
 }
 
@@ -146,6 +147,9 @@ impl State {
 
     fn draw(&self, pos: Option<u16>) -> Result<()> {
         let mut target = std::io::stderr().lock();
+        if !target.is_tty() {
+            return Ok(());
+        }
 
         let pos = if let Some(pos) = pos {
             pos
@@ -166,7 +170,7 @@ impl State {
             format!("{}", self)
         };
         let msg = format!("{:1$}", msg, ncols as usize);
-        
+
         target.queue(Hide)?;
         if pos != 0 {
             target.queue(Print("\n".repeat(pos as usize)))?;
@@ -182,6 +186,9 @@ impl State {
 
     fn clear(&self) -> Result<()> {
         let mut target = std::io::stderr().lock();
+        if !target.is_tty() {
+            return Ok(());
+        }
 
         let pos = self.get_pos();
 
@@ -215,7 +222,7 @@ impl Display for State {
 
         let Config { desc, width, style } = &self.config;
         let desc = desc.clone().map_or(String::new(), |desc| desc + ": ");
-        let width = width.unwrap_or_else(|| crossterm::terminal::size().unwrap().0);
+        let width = width.unwrap_or_else(|| terminal::size().map_or(80, |(c, _)| c));
 
         /// Time formatting function, which omits the leading 0s
         fn ftime(seconds: usize) -> String {
