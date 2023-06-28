@@ -1,4 +1,4 @@
-//! TODO: documentation
+//! Styles of a progress bar
 
 use strum::AsRefStr;
 

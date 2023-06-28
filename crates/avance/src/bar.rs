@@ -1,11 +1,11 @@
-//! TODO: documentation
+//! A progress bar
 
 use crossterm::cursor::{Hide, MoveUp, Show};
 use crossterm::style::Print;
 use crossterm::terminal::{self, Clear, ClearType};
 use crossterm::tty::IsTty;
 use crossterm::QueueableCommand;
-use std::cmp::min;
+use std::cmp::{max, min};
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
 use std::io::{Result, Write};
@@ -222,7 +222,8 @@ impl Display for State {
 
         let Config { desc, width, style } = &self.config;
         let desc = desc.clone().map_or(String::new(), |desc| desc + ": ");
-        let width = width.unwrap_or_else(|| terminal::size().map_or(80, |(c, _)| c));
+        let terminal_width = terminal::size().map_or(80, |(c, _)| c);
+        let width = width.map_or(terminal_width, |w| min(w, terminal_width));
 
         /// Time formatting function, which omits the leading 0s
         fn ftime(seconds: usize) -> String {
@@ -293,6 +294,14 @@ type Pos = u16;
 static NEXTID: AtomicU64 = AtomicU64::new(0);
 static NROWS: AtomicU16 = AtomicU16::new(20);
 static POSITIONS: OnceLock<Mutex<HashMap<PosID, Pos>>> = OnceLock::new();
+
+/// This method decides how many progress bar can be shown on the screen.
+/// If specified, hides bars outside this limit. If unspecified, adjusts to
+/// environment height.
+pub fn set_max_progress_bars(nbars: u16) {
+    let nrows = max(nbars + 1, 2);
+    NROWS.swap(nrows, Ordering::Relaxed);
+}
 
 fn positions() -> &'static Mutex<HashMap<PosID, Pos>> {
     POSITIONS.get_or_init(|| Mutex::new(HashMap::new()))
@@ -402,7 +411,7 @@ mod tests {
         NROWS.swap(10, Ordering::Relaxed);
 
         let threads: Vec<_> = (0..15)
-            .map(|i| thread::spawn(move || progress_bar(80 * (i % 4 + 1), 15 * (i % 4 + 1))))
+            .map(|i| thread::spawn(move || progress_bar(80 * (i % 4 + 1), 10 * (i % 4 + 1))))
             .collect();
 
         for t in threads {

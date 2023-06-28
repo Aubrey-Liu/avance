@@ -1,4 +1,4 @@
-//! TODO: documentation
+//! A wrapped iterator that shows progress
 
 use std::ops::{Deref, DerefMut};
 
