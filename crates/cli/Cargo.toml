@@ -3,8 +3,9 @@ name = "avance-cli"
 version = "0.1.0"
 edition = "2021"
 license = "MIT OR Apache-2.0"
-repository = "https://github.com/Aubrey-Liu/avance"
-description = "avance-cli(avc) offers easy-to-use progress bar in the command line."
+repository = "https://github.com/Aubrey-Liu/avance/tree/main/crates/cli"
+homepage = "https://github.com/Aubrey-Liu/avance"
+description = "avance-cli(avc) - out of box progress bar in the terminal"
 readme = "README.md"
 authors = ["Aubrey Liu <aubreyliu233@gmail.com>"]
 keywords = ["progress", "progressbar"]
@@ -17,4 +18,4 @@ path = "src/main.rs"
 [dependencies]
 clap = "4.3.8"
 version = "3.0.0"
-avance = { path = "../avance", version = "0.2.0"}
+avance = { path = "../avance", version = "0.2.0" }
