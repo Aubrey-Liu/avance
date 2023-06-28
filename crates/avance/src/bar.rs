@@ -1,6 +1,6 @@
 //! A progress bar
 
-use crossterm::cursor::{Hide, MoveUp, Show};
+use crossterm::cursor::{MoveDown, MoveToColumn, MoveUp};
 use crossterm::style::Print;
 use crossterm::terminal::{self, Clear, ClearType};
 use crossterm::tty::IsTty;
@@ -171,16 +171,18 @@ impl State {
         };
         let msg = format!("{:1$}", msg, ncols as usize);
 
-        target.queue(Hide)?;
+        // target.queue(Hide)?;
         if pos != 0 {
-            target.queue(Print("\n".repeat(pos as usize)))?;
+            target.queue(MoveDown(pos))?;
+            target.queue(MoveToColumn(0))?;
             target.queue(Print(msg))?;
             target.queue(MoveUp(pos))?;
+            target.queue(MoveToColumn(ncols))?;
         } else {
-            target.queue(Print("\r"))?;
+            target.queue(MoveToColumn(0))?;
             target.queue(Print(msg))?;
         }
-        target.queue(Show)?;
+        // target.queue(Show)?;
         target.flush()
     }
 
@@ -198,15 +200,13 @@ impl State {
             return Ok(());
         }
 
-        target.queue(Hide)?;
         if pos != 0 {
-            target.queue(Print("\n".repeat(pos as usize)))?;
+            target.queue(MoveDown(pos))?;
             target.queue(Clear(ClearType::CurrentLine))?;
             target.queue(MoveUp(pos))?;
         } else {
             target.queue(Clear(ClearType::CurrentLine))?;
         }
-        target.queue(Show)?;
         target.flush()
     }
 
