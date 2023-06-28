@@ -5,6 +5,10 @@
 //! avance means advance or progress in spanish. This naming was inspired by
 //! [tqdm](https://github.com/tqdm/tqdm), which was named after an arabic word.
 //!
+//! Here is an example of using avance in multiple threads:
+//!
+//! <img src="https://github.com/Aubrey-Liu/avance/raw/main/screenshots/multiple_bars.gif" width="90%">
+//!
 //! # Platform support
 //!
 //! * Linux

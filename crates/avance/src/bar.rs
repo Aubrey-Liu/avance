@@ -391,18 +391,18 @@ mod tests {
         let bar = AvanceBar::new(300);
 
         std::thread::scope(|t| {
-            t.spawn(|| progress_bar_ref(&bar, 50, 80));
-            t.spawn(|| progress_bar_ref(&bar, 100, 40));
-            t.spawn(|| progress_bar_ref(&bar, 150, 20));
+            t.spawn(|| progress_bar_ref(&bar, 100, 30));
+            t.spawn(|| progress_bar_ref(&bar, 100, 20));
+            t.spawn(|| progress_bar_ref(&bar, 100, 10));
         });
     }
 
     #[test]
     fn multiple_bars() {
         std::thread::scope(|t| {
-            t.spawn(|| progress_bar(150, 30));
-            t.spawn(|| progress_bar(300, 25));
-            t.spawn(|| progress_bar(500, 15));
+            t.spawn(|| progress_bar(150, 10));
+            t.spawn(|| progress_bar(300, 10));
+            t.spawn(|| progress_bar(500, 10));
         });
     }
 
