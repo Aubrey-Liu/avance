@@ -1,22 +1,18 @@
 //! TODO: documentation
 
-use crossterm::{
-    cursor::{Hide, MoveUp, Show},
-    style::Print,
-    terminal::{Clear, ClearType},
-    QueueableCommand,
+use crossterm::cursor::{Hide, MoveUp, Show};
+use crossterm::style::Print;
+use crossterm::terminal::{Clear, ClearType};
+use crossterm::QueueableCommand;
+use std::cmp::min;
+use std::collections::HashMap;
+use std::fmt::{Display, Formatter};
+use std::io::{Result, Write};
+use std::sync::{
+    atomic::{AtomicU16, AtomicU64, Ordering},
+    Arc, Mutex, OnceLock,
 };
-use std::{
-    cmp::min,
-    collections::HashMap,
-    fmt::{Display, Formatter},
-    io::{Result, Write},
-    sync::{
-        atomic::{AtomicU16, AtomicU64, Ordering},
-        Arc, Mutex, OnceLock,
-    },
-    time::Instant,
-};
+use std::time::Instant;
 
 use crate::style::Style;
 
