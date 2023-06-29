@@ -1,6 +1,6 @@
 //! A progress bar and all utilities.
 
-use crossterm::cursor::{MoveDown, MoveToColumn, MoveUp};
+use crossterm::cursor::{MoveToColumn, MoveUp};
 use crossterm::style::Print;
 use crossterm::terminal::{self, Clear, ClearType};
 use crossterm::tty::IsTty;
@@ -262,9 +262,9 @@ impl State {
             self.get_pos()
         };
 
-        let nrows = NROWS.load(Ordering::Relaxed);
-        let (ncols, nrows) =
-            crossterm::terminal::size().map_or((80, nrows), |(c, r)| (c, min(r, nrows)));
+        let ncols = terminal_size().0;
+        let nrows = nrows();
+
         if pos >= nrows {
             return Ok(());
         }
@@ -276,10 +276,8 @@ impl State {
         };
         let msg = format!("{:1$}", msg, ncols as usize);
 
-        // target.queue(Hide)?;
         if pos != 0 {
-            target.queue(MoveDown(pos))?;
-            target.queue(MoveToColumn(0))?;
+            target.queue(Print("\n".repeat(pos as usize)))?;
             target.queue(Print(msg))?;
             target.queue(MoveUp(pos))?;
             target.queue(MoveToColumn(ncols))?;
@@ -287,7 +285,6 @@ impl State {
             target.queue(MoveToColumn(0))?;
             target.queue(Print(msg))?;
         }
-        // target.queue(Show)?;
         target.flush()
     }
 
@@ -298,15 +295,13 @@ impl State {
         }
 
         let pos = self.get_pos();
-
-        let nrows = NROWS.load(Ordering::Relaxed);
-        let nrows = crossterm::terminal::size().map_or(nrows, |(_, r)| min(r, nrows));
+        let nrows = nrows();
         if pos >= nrows {
             return Ok(());
         }
 
         if pos != 0 {
-            target.queue(MoveDown(pos))?;
+            target.queue(Print("\n".repeat(pos as usize)))?;
             target.queue(Clear(ClearType::CurrentLine))?;
             target.queue(MoveUp(pos))?;
         } else {
@@ -399,7 +394,7 @@ type PosID = u64;
 type Pos = u16;
 
 static NEXTID: AtomicU64 = AtomicU64::new(0);
-static NROWS: AtomicU16 = AtomicU16::new(20);
+static NROWS: AtomicU16 = AtomicU16::new(0);
 static POSITIONS: OnceLock<Mutex<HashMap<PosID, Pos>>> = OnceLock::new();
 
 /// This method decides how many progress bar can be shown on the screen.
@@ -412,6 +407,20 @@ pub fn set_max_progress_bars(nbars: u16) {
 
 fn positions() -> &'static Mutex<HashMap<PosID, Pos>> {
     POSITIONS.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+fn terminal_size() -> (u16, u16) {
+    crossterm::terminal::size().unwrap_or((80, 64))
+}
+
+fn nrows() -> u16 {
+    let nrows = NROWS.load(Ordering::Relaxed);
+
+    if nrows != 0 {
+        min(nrows, terminal_size().1)
+    } else {
+        terminal_size().1
+    }
 }
 
 fn next_free_pos() -> PosID {
@@ -427,15 +436,12 @@ fn reposition(id: PosID) {
     let mut positions = positions().lock().unwrap();
 
     let closed_pos = *positions.get(&id).unwrap();
-    if closed_pos >= NROWS.load(Ordering::Relaxed) - 1 {
+    if closed_pos >= nrows() - 1 {
         positions.remove(&id);
         return;
     }
 
-    if let Some((&chosen_id, _)) = positions
-        .iter()
-        .find(|(_, &pos)| pos >= NROWS.load(Ordering::Relaxed) - 1)
-    {
+    if let Some((&chosen_id, _)) = positions.iter().find(|(_, &pos)| pos >= nrows()) {
         // Move an overflowed bar up to fill the blank
         positions.remove(&id);
         *positions.get_mut(&chosen_id).unwrap() = closed_pos;
@@ -452,9 +458,9 @@ fn reposition(id: PosID) {
 
 #[cfg(test)]
 mod tests {
-    use std::{sync::atomic::Ordering, thread, time::Duration};
+    use std::{thread, time::Duration};
 
-    use super::NROWS;
+    use super::set_max_progress_bars;
     use crate::{style::Style, AvanceBar};
 
     fn progress_bar_ref(pb: &AvanceBar, n: u64, interval: u64) {
@@ -472,7 +478,7 @@ mod tests {
 
     #[test]
     fn basic_bar() {
-        progress_bar(100, 20);
+        progress_bar(100, 10);
     }
 
     #[test]
@@ -480,7 +486,7 @@ mod tests {
         let pb = AvanceBar::new(100);
         pb.set_width(60);
 
-        progress_bar_ref(&pb, 100, 20);
+        progress_bar_ref(&pb, 100, 10);
     }
 
     #[test]
@@ -490,7 +496,7 @@ mod tests {
         pb.set_style(Style::Balloon);
         pb.set_width(60);
 
-        progress_bar_ref(&pb, 100, 20);
+        progress_bar_ref(&pb, 100, 10);
     }
 
     #[test]
@@ -498,9 +504,9 @@ mod tests {
         let pb = AvanceBar::new(300);
 
         std::thread::scope(|t| {
-            t.spawn(|| progress_bar_ref(&pb, 100, 30));
-            t.spawn(|| progress_bar_ref(&pb, 100, 20));
+            t.spawn(|| progress_bar_ref(&pb, 100, 15));
             t.spawn(|| progress_bar_ref(&pb, 100, 10));
+            t.spawn(|| progress_bar_ref(&pb, 100, 5));
         });
     }
 
@@ -515,10 +521,10 @@ mod tests {
 
     #[test]
     fn overflowing() {
-        NROWS.swap(10, Ordering::Relaxed);
+        set_max_progress_bars(4);
 
         let threads: Vec<_> = (0..15)
-            .map(|i| thread::spawn(move || progress_bar(80 * (i % 4 + 1), 10 * (i % 4 + 1))))
+            .map(|i| thread::spawn(move || progress_bar(80 * (i % 4 + 1), 5 * (i % 2 + 1))))
             .collect();
 
         for t in threads {
