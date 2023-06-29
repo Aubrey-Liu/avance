@@ -15,6 +15,16 @@ where
     Self: Sized + Iterator,
 {
     /// Wraps an iterator to display a progress bar.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use avance::AvanceIterator;
+    ///
+    /// for _ in (0..1000).avance() {
+    ///     // do something here
+    /// }
+    /// ```
     fn avance(self) -> AvanceIter<Self> {
         AvanceIter {
             bar: AvanceBar::with_hint(self.size_hint().1),
@@ -27,12 +37,32 @@ impl<Iter: Iterator> AvanceIter<Iter> {
     /// Set the style of a progress bar.
     ///
     /// See available styles in [`Style`]
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use avance::{AvanceIterator, Style};
+    ///
+    /// for _ in (0..1000).avance().style(Style::Balloon) {
+    ///     // do something here
+    /// }
+    /// ```
     pub fn style(self, style: Style) -> Self {
         self.bar.set_style(style);
         self
     }
 
     /// Set the description of a progress bar.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use avance::{AvanceIterator, Style};
+    ///
+    /// for _ in (0..1000).avance().desc("task name") {
+    ///     // do something here
+    /// }
+    /// ```
     pub fn desc(self, desc: impl ToString) -> Self {
         self.bar.set_description(desc);
         self
@@ -42,6 +72,16 @@ impl<Iter: Iterator> AvanceIter<Iter> {
     ///
     /// If width is larger than terminal width, progress bar will adjust
     /// to the terminal width.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use avance::{AvanceIterator, Style};
+    ///
+    /// for _ in (0..1000).avance().width(80) {
+    ///     // do something here
+    /// }
+    /// ```
     pub fn width(self, width: u16) -> Self {
         self.bar.set_width(width);
         self
@@ -101,7 +141,12 @@ mod tests {
 
     #[test]
     fn associated_methods() {
-        for _ in (0..100).avance().style(Style::Block).desc("avance") {
+        for _ in (0..100)
+            .avance()
+            .style(Style::Block)
+            .desc("avance")
+            .width(85)
+        {
             thread::sleep(Duration::from_millis(20));
         }
     }

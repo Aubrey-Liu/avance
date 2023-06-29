@@ -10,7 +10,7 @@ documentation = "https://docs.rs/avance"
 description = "A lightweight, concurrent and easy-to-use progress bar"
 readme = "README.md"
 authors = ["Aubrey Liu <aubreyliu233@gmail.com>"]
-keywords = ["progress", "progressbar"]
+keywords = ["cli", "progress", "progressbar", "pb"]
 categories = ["command-line-utilities"]
 
 [dependencies]

@@ -22,9 +22,9 @@
 //! ```
 //! use avance::bar::AvanceBar;
 //!
-//! let bar = AvanceBar::new(100);
+//! let pb = AvanceBar::new(100);
 //! for _ in 0..100 {
-//!     bar.update(1);
+//!     pb.inc();
 //!     // do something here
 //! }
 //! // Don't need to close a bar manually. It will close automatically when being dropped.
@@ -35,10 +35,10 @@
 //! use avance::AvanceBar;
 //! use avance::Style;
 //!
-//! let bar = AvanceBar::new(100);
-//! bar.set_style(Style::Balloon);
-//! bar.set_width(80);
-//! bar.set_description("avance");
+//! let pb = AvanceBar::new(100);
+//! pb.set_style(Style::Balloon);
+//! pb.set_width(80);
+//! pb.set_description("avance");
 //! ```
 //!
 //! Behaviors:

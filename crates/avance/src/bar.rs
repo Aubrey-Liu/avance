@@ -24,12 +24,18 @@ pub struct AvanceBar {
 
 impl AvanceBar {
     /// Create a new progress bar
+    ///
+    /// # Examples
+    /// ```
+    /// use avance::AvanceBar;
+    /// let pb = AvanceBar::new(1000);
+    /// ```
     pub fn new(total: u64) -> Self {
-        let bar = AvanceBar {
+        let pb = AvanceBar {
             state: Arc::new(Mutex::new(State::new(Some(total)))),
         };
-        bar.refresh();
-        bar
+        pb.refresh();
+        pb
     }
 
     pub(crate) fn with_hint(size_hint: Option<usize>) -> Self {
@@ -44,6 +50,19 @@ impl AvanceBar {
     /// the progress bar will be like:
     ///
     /// `avance: 100%|*************| 100/100 [00:02<00:00, 44.18it/s]`
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use avance::AvanceBar;
+    ///
+    /// let pb = AvanceBar::new(1000);
+    /// pb.set_description("task name");
+    /// for _ in 0..1000 {
+    ///    // ...
+    ///    pb.inc();
+    /// }
+    /// ```
     pub fn set_description(&self, desc: impl ToString) {
         let mut state = self.state.lock().unwrap();
         state.config.desc = Some(desc.to_string());
@@ -55,6 +74,19 @@ impl AvanceBar {
     ///
     /// If width is larger than terminal width, progress bar will adjust
     /// to the terminal width.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use avance::AvanceBar;
+    ///
+    /// let pb = AvanceBar::new(1000);
+    /// pb.set_width(80);
+    /// for _ in 0..1000 {
+    ///    // ...
+    ///    pb.inc();
+    /// }
+    /// ```
     pub fn set_width(&self, width: u16) {
         let mut state = self.state.lock().unwrap();
         state.config.width = Some(width);
@@ -66,6 +98,19 @@ impl AvanceBar {
     /// Set the style of a progress bar.
     ///
     /// See available styles in [`Style`]
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use avance::{AvanceBar, Style};
+    ///
+    /// let pb = AvanceBar::new(1000);
+    /// pb.set_style(Style::Block);
+    /// for _ in 0..1000 {
+    ///    // ...
+    ///    pb.inc();
+    /// }
+    /// ```
     pub fn set_style(&self, style: Style) {
         let mut state = self.state.lock().unwrap();
         state.config.style = style;
@@ -73,21 +118,55 @@ impl AvanceBar {
         drop(state.draw(None));
     }
 
-    /// Manually refresh the progress bar
-    pub fn refresh(&self) {
-        let state = self.state.lock().unwrap();
-
-        drop(state.draw(None))
-    }
-
     /// Advance the progress bar by n steps
+    ///     /// Advance the progress bar by one step, equal to `update(1)`
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use avance::AvanceBar;
+    /// # use std::fs::File;
+    /// # use std::io::{BufRead, BufReader, Result};
+    /// # use std::thread;
+    /// # use std::time::Duration;
+    ///
+    /// # fn main() -> Result<()> {
+    /// let f = File::open("/usr/share/dict/words").unwrap();
+    /// let n_bytes = f.metadata().unwrap().len();
+    /// let pb = AvanceBar::new(n_bytes);
+    /// let reader = BufReader::new(f);
+    /// for line in reader.lines() {
+    ///    let line = line?;
+    ///    pb.update(line.len() as u64 + 1);
+    /// }
+    ///
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn update(&self, n: u64) {
         let mut state = self.state.lock().unwrap();
 
         state.update(n);
     }
 
-    /// Manually stop the progress bar
+    /// Advance the progress bar by one step, equal to `update(1)`
+    ///
+    /// # Examples
+    /// ```
+    /// use avance::bar::AvanceBar;
+    ///
+    /// let pb = AvanceBar::new(100);
+    /// for _ in 0..100 {
+    ///     pb.inc();
+    ///     // do something here
+    /// }
+    /// ```
+    pub fn inc(&self) {
+        self.update(1);
+    }
+
+    /// Manually stop the progress bar. Usually users don't have to call this
+    /// method directly, as a progress bar will close automatically when dropped.
     pub fn close(&self) -> Result<()> {
         let mut state = self.state.lock().unwrap();
 
@@ -102,6 +181,16 @@ impl AvanceBar {
         } else {
             Ok(())
         }
+    }
+
+    /// Refresh the progress bar.
+    ///
+    /// # Panics
+    /// This method would only panic when another thread was using a progress bar and panicked.
+    fn refresh(&self) {
+        let state = self.state.lock().unwrap();
+
+        drop(state.draw(None))
     }
 }
 
@@ -368,17 +457,17 @@ mod tests {
     use super::NROWS;
     use crate::{style::Style, AvanceBar};
 
-    fn progress_bar_ref(bar: &AvanceBar, n: u64, interval: u64) {
+    fn progress_bar_ref(pb: &AvanceBar, n: u64, interval: u64) {
         for _ in 0..n {
-            bar.update(1);
+            pb.update(1);
 
             std::thread::sleep(Duration::from_millis(interval));
         }
     }
 
     fn progress_bar(n: u64, interval: u64) {
-        let bar = AvanceBar::new(n);
-        progress_bar_ref(&bar, n, interval);
+        let pb = AvanceBar::new(n);
+        progress_bar_ref(&pb, n, interval);
     }
 
     #[test]
@@ -388,30 +477,30 @@ mod tests {
 
     #[test]
     fn bar_with_width() {
-        let bar = AvanceBar::new(100);
-        bar.set_width(60);
+        let pb = AvanceBar::new(100);
+        pb.set_width(60);
 
-        progress_bar_ref(&bar, 100, 20);
+        progress_bar_ref(&pb, 100, 20);
     }
 
     #[test]
     fn misc() {
-        let bar = AvanceBar::new(100);
-        bar.set_description("avance");
-        bar.set_style(Style::Balloon);
-        bar.set_width(60);
+        let pb = AvanceBar::new(100);
+        pb.set_description("avance");
+        pb.set_style(Style::Balloon);
+        pb.set_width(60);
 
-        progress_bar_ref(&bar, 100, 20);
+        progress_bar_ref(&pb, 100, 20);
     }
 
     #[test]
     fn single_bar_multi_threads() {
-        let bar = AvanceBar::new(300);
+        let pb = AvanceBar::new(300);
 
         std::thread::scope(|t| {
-            t.spawn(|| progress_bar_ref(&bar, 100, 30));
-            t.spawn(|| progress_bar_ref(&bar, 100, 20));
-            t.spawn(|| progress_bar_ref(&bar, 100, 10));
+            t.spawn(|| progress_bar_ref(&pb, 100, 30));
+            t.spawn(|| progress_bar_ref(&pb, 100, 20));
+            t.spawn(|| progress_bar_ref(&pb, 100, 10));
         });
     }
 
