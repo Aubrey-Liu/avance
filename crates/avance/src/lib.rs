@@ -56,7 +56,12 @@
 //!
 //! // methods can be chained
 //! for _ in (0..100).avance().style(Style::ASCII).width(80) {
-//!     // do something here
+//!     // ...
+//! }
+//!
+//! // also supports build a progress bar like this
+//! for _ in avance(0..100).style(Style::Balloon).desc("avance") {
+//!     // ...
 //! }
 //! ```
 

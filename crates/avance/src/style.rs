@@ -2,6 +2,7 @@
 
 use strum::AsRefStr;
 
+/// Styles of a progress bar
 #[derive(Debug, Clone, Copy, Default, AsRefStr)]
 pub enum Style {
     #[default]

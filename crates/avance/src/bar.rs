@@ -1,4 +1,4 @@
-//! A progress bar
+//! A progress bar and all utilities.
 
 use crossterm::cursor::{MoveDown, MoveToColumn, MoveUp};
 use crossterm::style::Print;
@@ -17,11 +17,13 @@ use std::time::Instant;
 
 use crate::style::Style;
 
+/// The progress bar
 pub struct AvanceBar {
     state: AtomicState,
 }
 
 impl AvanceBar {
+    /// Create a new progress bar
     pub fn new(total: u64) -> Self {
         let bar = AvanceBar {
             state: Arc::new(Mutex::new(State::new(Some(total)))),
@@ -36,6 +38,12 @@ impl AvanceBar {
         }
     }
 
+    /// Set the description of a progress bar.
+    ///
+    /// For example, if you set "avance" as the description,
+    /// the progress bar will be like:
+    ///
+    /// `avance: 100%|*************| 100/100 [00:02<00:00, 44.18it/s]`
     pub fn set_description(&self, desc: impl ToString) {
         let mut state = self.state.lock().unwrap();
         state.config.desc = Some(desc.to_string());
@@ -43,6 +51,10 @@ impl AvanceBar {
         drop(state.draw(None));
     }
 
+    /// Set a progress bar's width
+    ///
+    /// If width is larger than terminal width, progress bar will adjust
+    /// to the terminal width.
     pub fn set_width(&self, width: u16) {
         let mut state = self.state.lock().unwrap();
         state.config.width = Some(width);
@@ -51,6 +63,9 @@ impl AvanceBar {
         drop(state.draw(None));
     }
 
+    /// Set the style of a progress bar.
+    ///
+    /// See available styles in [`Style`]
     pub fn set_style(&self, style: Style) {
         let mut state = self.state.lock().unwrap();
         state.config.style = style;
@@ -65,7 +80,7 @@ impl AvanceBar {
         drop(state.draw(None))
     }
 
-    /// Make some progress
+    /// Advance the progress bar by n steps
     pub fn update(&self, n: u64) {
         let mut state = self.state.lock().unwrap();
 
@@ -91,6 +106,7 @@ impl AvanceBar {
 }
 
 impl Drop for AvanceBar {
+    /// Automatically close a progress bar when it's dropped.
     fn drop(&mut self) {
         drop(self.close());
     }
@@ -271,6 +287,7 @@ impl Display for State {
     }
 }
 
+/// Config decides how a progress bar is displayed
 pub struct Config {
     style: Style,
     width: Option<u16>,
@@ -287,6 +304,7 @@ impl Config {
     }
 }
 
+/// Wrapping state in arc and mutex
 type AtomicState = Arc<Mutex<State>>;
 type PosID = u64;
 type Pos = u16;
@@ -381,7 +399,7 @@ mod tests {
         let bar = AvanceBar::new(100);
         bar.set_description("avance");
         bar.set_style(Style::Balloon);
-        bar.set_width(76);
+        bar.set_width(60);
 
         progress_bar_ref(&bar, 100, 20);
     }

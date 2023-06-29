@@ -4,6 +4,7 @@ use std::ops::{Deref, DerefMut};
 
 use crate::{bar::AvanceBar, Style};
 
+/// An iterator wrapper that shows a progress bar
 pub struct AvanceIter<Iter: Iterator> {
     iter: Iter,
     bar: AvanceBar,
@@ -13,6 +14,7 @@ pub trait AvanceIterator
 where
     Self: Sized + Iterator,
 {
+    /// Wraps an iterator to display a progress bar.
     fn avance(self) -> AvanceIter<Self> {
         AvanceIter {
             bar: AvanceBar::with_hint(self.size_hint().1),
@@ -22,22 +24,31 @@ where
 }
 
 impl<Iter: Iterator> AvanceIter<Iter> {
+    /// Set the style of a progress bar.
+    ///
+    /// See available styles in [`Style`]
     pub fn style(self, style: Style) -> Self {
         self.bar.set_style(style);
         self
     }
 
-    pub fn description(self, desc: impl ToString) -> Self {
+    /// Set the description of a progress bar.
+    pub fn desc(self, desc: impl ToString) -> Self {
         self.bar.set_description(desc);
         self
     }
 
+    /// Set a progress bar's width
+    ///
+    /// If width is larger than terminal width, progress bar will adjust
+    /// to the terminal width.
     pub fn width(self, width: u16) -> Self {
         self.bar.set_width(width);
         self
     }
 }
 
+// Implement AcanceIterator trait for all Iterator types
 impl<Iter: Iterator> AvanceIterator for Iter {}
 
 impl<Iter: Iterator> Iterator for AvanceIter<Iter> {
@@ -67,6 +78,7 @@ impl<Iter: Iterator> DerefMut for AvanceIter<Iter> {
     }
 }
 
+/// Wraps an iterator to display a progress bar.
 pub fn avance<Iter: Iterator>(iter: Iter) -> AvanceIter<Iter> {
     AvanceIter {
         bar: AvanceBar::with_hint(iter.size_hint().1),
@@ -89,7 +101,7 @@ mod tests {
 
     #[test]
     fn associated_methods() {
-        for _ in (0..100).avance().style(Style::Block).description("avance") {
+        for _ in (0..100).avance().style(Style::Block).desc("avance") {
             thread::sleep(Duration::from_millis(20));
         }
     }
