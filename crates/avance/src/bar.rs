@@ -125,23 +125,23 @@ impl AvanceBar {
     ///
     /// ```
     /// use avance::AvanceBar;
-    /// # use std::fs::File;
-    /// # use std::io::{BufRead, BufReader, Result};
+    /// # use std::cmp::min;
     /// # use std::thread;
     /// # use std::time::Duration;
     ///
-    /// # fn main() -> Result<()> {
-    /// let f = File::open("/usr/share/dict/words").unwrap();
-    /// let n_bytes = f.metadata().unwrap().len();
+    /// let n_bytes = 1024 * 1024;
+    /// let mut bytes_read = 0;
+    ///
     /// let pb = AvanceBar::new(n_bytes);
-    /// let reader = BufReader::new(f);
-    /// for line in reader.lines() {
-    ///    let line = line?;
-    ///    pb.update(line.len() as u64 + 1);
+    /// pb.set_style(avance::Style::Block);
+    /// pb.set_description("reading");
+    ///
+    /// while bytes_read < n_bytes {
+    ///     bytes_read = min(bytes_read + 1378, n_bytes);
+    ///     pb.update(1378);
     /// }
     ///
-    /// # Ok(())
-    /// # }
+    /// pb.set_description("done");
     /// ```
     pub fn update(&self, n: u64) {
         let mut state = self.state.lock().unwrap();
@@ -155,8 +155,8 @@ impl AvanceBar {
     /// ```
     /// use avance::bar::AvanceBar;
     ///
-    /// let pb = AvanceBar::new(100);
-    /// for _ in 0..100 {
+    /// let pb = AvanceBar::new(1000);
+    /// for _ in 0..1000 {
     ///     pb.inc();
     ///     // do something here
     /// }
