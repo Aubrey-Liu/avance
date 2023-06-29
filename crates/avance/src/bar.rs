@@ -71,8 +71,7 @@ impl AvanceBar {
     pub fn set_description(&self, desc: impl ToString) {
         let mut state = self.state.lock().unwrap();
         state.config.desc = Some(desc.to_string());
-
-        drop(state.draw(None));
+        state.draw(None).unwrap();
     }
 
     /// Set a progress bar's width
@@ -95,9 +94,8 @@ impl AvanceBar {
     pub fn set_width(&self, width: u16) {
         let mut state = self.state.lock().unwrap();
         state.config.width = Some(width);
-
-        drop(state.clear());
-        drop(state.draw(None));
+        state.clear().unwrap();
+        state.draw(None).unwrap();
     }
 
     /// Set the style of a progress bar.
@@ -119,8 +117,7 @@ impl AvanceBar {
     pub fn set_style(&self, style: Style) {
         let mut state = self.state.lock().unwrap();
         state.config.style = style;
-
-        drop(state.draw(None));
+        state.draw(None).unwrap();
     }
 
     /// Advance the progress bar by n steps
@@ -172,37 +169,41 @@ impl AvanceBar {
 
     /// Manually stop the progress bar. Usually users don't have to call this
     /// method directly, as a progress bar will close automatically when dropped.
-    pub fn close(&self) -> Result<()> {
+    pub fn close(&self) {
         let mut state = self.state.lock().unwrap();
+        if state.try_get_pos().is_none() {
+            // already closed
+            return;
+        }
 
         reposition(state.id);
 
-        state.force_update();
-        state.draw(Some(0))?;
+        if !matches!(state.total, Some(t) if t == state.n) {
+            state.force_update();
+        }
+        state.draw(Some(0)).unwrap();
 
         let mut target = std::io::stderr().lock();
         if target.is_tty() {
-            writeln!(target)
-        } else {
-            Ok(())
+            writeln!(target).unwrap();
         }
     }
 
     /// Refresh the progress bar.
     ///
     /// # Panics
-    /// This method would only panic when another thread was using a progress bar and panicked.
+    /// This method will panic when another thread was using a progress bar and panicked.
     fn refresh(&self) {
         let state = self.state.lock().unwrap();
 
-        drop(state.draw(None))
+        state.draw(None).unwrap();
     }
 }
 
 impl Drop for AvanceBar {
     /// Automatically close a progress bar when it's dropped.
     fn drop(&mut self) {
-        drop(self.close());
+        self.close();
     }
 }
 
@@ -236,12 +237,12 @@ impl State {
 
         if matches!(self.total, Some(total) if self.n + self.cached >= total) {
             self.force_update();
-            drop(self.draw(None));
+            self.draw(None).unwrap();
         } else if self.last.elapsed().as_secs_f64() >= self.interval {
             self.n += self.cached;
             self.cached = 0;
             self.last = Instant::now();
-            drop(self.draw(None));
+            self.draw(None).unwrap();
         }
     }
 
@@ -315,15 +316,19 @@ impl State {
         target.flush()
     }
 
-    fn get_pos(&self) -> Pos {
+    fn try_get_pos(&self) -> Option<Pos> {
         let positions = positions().lock().unwrap();
-        *positions.get(&self.id).unwrap()
+        positions.get(&self.id).map(|p| *p)
+    }
+
+    fn get_pos(&self) -> Pos {
+        self.try_get_pos().unwrap()
     }
 }
 
 impl Display for State {
     fn fmt(&self, fmt: &mut Formatter<'_>) -> std::fmt::Result {
-        let elapsed = self.begin.elapsed().as_secs_f64();
+        let elapsed = self.last.duration_since(self.begin).as_secs_f64();
 
         let Config { desc, width, style } = &self.config;
         let desc = desc.clone().map_or(String::new(), |desc| desc + ": ");
@@ -518,9 +523,9 @@ mod tests {
     #[test]
     fn multiple_bars() {
         std::thread::scope(|t| {
-            t.spawn(|| progress_bar(150, 10));
-            t.spawn(|| progress_bar(300, 10));
-            t.spawn(|| progress_bar(500, 10));
+            t.spawn(|| progress_bar(150, 5));
+            t.spawn(|| progress_bar(300, 5));
+            t.spawn(|| progress_bar(500, 5));
         });
     }
 
