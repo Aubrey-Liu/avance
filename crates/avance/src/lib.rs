@@ -60,6 +60,7 @@
 //! }
 //!
 //! // also supports build a progress bar like this
+//! use avance::avance;
 //! for _ in avance(0..100).style(Style::Balloon).desc("avance") {
 //!     // ...
 //! }
@@ -70,5 +71,5 @@ pub mod iter;
 pub mod style;
 
 pub use bar::AvanceBar;
-pub use iter::AvanceIterator;
+pub use iter::{avance, AvanceIterator};
 pub use style::Style;
