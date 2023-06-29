@@ -11,19 +11,17 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
+        rust: [1.63.0, stable]
     steps:
       - uses: actions/checkout@v3
       - uses: actions-rs/toolchain@v1
         with:
-          toolchain: stable
+          toolchain: ${{ matrix.rust }}
           override: true
       - uses: actions-rs/cargo@v1
         with:
-          command: check
-      - uses: actions-rs/cargo@v1
-        with:
           command: test
-          args: --workspace --no-fail-fast
+          args: -p avance --no-fail-fast
         env:
           CARGO_INCREMENTAL: "0"
 

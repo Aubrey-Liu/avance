@@ -11,9 +11,14 @@ use std::fmt::{Display, Formatter};
 use std::io::{Result, Write};
 use std::sync::{
     atomic::{AtomicU16, AtomicU64, Ordering},
-    Arc, Mutex, OnceLock,
+    Arc, Mutex,
 };
 use std::time::Instant;
+
+#[cfg(extern_once_cell)]
+use once_cell::sync::OnceCell as OnceLock;
+#[cfg(std_once_cell)]
+use std::sync::OnceLock;
 
 use crate::style::Style;
 
