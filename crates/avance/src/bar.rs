@@ -276,6 +276,7 @@ struct State {
 }
 
 impl State {
+    /// Create a new state of a progress bar
     fn new(total: Option<u64>) -> Self {
         Self {
             config: Config::new(),
@@ -289,13 +290,22 @@ impl State {
         }
     }
 
+    /// Advance n steps for a progress bar
     fn update(&mut self, n: u64) {
         self.cached += n;
 
-        if matches!(self.total, Some(total) if self.n + self.cached >= total) {
-            self.force_update();
-            let _ = self.draw(None);
-        } else if self.last.elapsed().as_secs_f64() >= self.interval {
+        if let Some(total) = self.total {
+            if self.n >= total {
+                return;
+            }
+
+            if self.n + self.cached >= total {
+                self.force_update();
+                let _ = self.draw(None);
+            }
+        }
+
+        if self.last.elapsed().as_secs_f64() >= self.interval {
             self.n += self.cached;
             self.cached = 0;
             self.last = Instant::now();
@@ -303,6 +313,7 @@ impl State {
         }
     }
 
+    /// Make progress without caring the interval
     fn force_update(&mut self) {
         self.n = if let Some(total) = self.total {
             min(total, self.n + self.cached)
@@ -313,6 +324,7 @@ impl State {
         self.last = Instant::now();
     }
 
+    /// Draw progress bar onto terminal
     fn draw(&self, pos: Option<u16>) -> Result<()> {
         if !self.drawable() {
             return Ok(());
@@ -351,10 +363,12 @@ impl State {
         target.flush()
     }
 
+    /// Is a progress bar able to be displayed
     fn drawable(&self) -> bool {
         stderr().is_tty() && self.try_get_pos().is_some()
     }
 
+    /// Sweep a progress bar from the terminal
     fn clear(&self) -> Result<()> {
         if !self.drawable() {
             return Ok(());
@@ -377,17 +391,23 @@ impl State {
         target.flush()
     }
 
+    /// Try to find a progress bar's position. If none, means the bar has already been closed.
     fn try_get_pos(&self) -> Option<Pos> {
         let positions = positions().lock().unwrap();
         positions.get(&self.id).copied()
     }
 
+    /// Get a progress bar's position, assuming the bar isn't closed.
+    ///
+    /// # Panics
+    /// Panics if the progress bar was closed.
     fn get_pos(&self) -> Pos {
         self.try_get_pos().unwrap()
     }
 }
 
 impl Display for State {
+    /// Convert a progerss bar into human readable format.
     fn fmt(&self, fmt: &mut Formatter<'_>) -> std::fmt::Result {
         let elapsed = self.last.duration_since(self.begin).as_secs_f64();
 
@@ -461,6 +481,7 @@ struct Config {
 }
 
 impl Config {
+    /// Create a new progress bar config.
     fn new() -> Self {
         Self {
             style: Style::default(),
@@ -477,8 +498,12 @@ type ID = u64;
 /// Position of a progress bar
 type Pos = u16;
 
+/// Next unused ID
 static NEXTID: AtomicU64 = AtomicU64::new(0);
+/// How many rows are this lib allowed to use. If unspecified,
+/// use the terminal height.
 static NROWS: AtomicU16 = AtomicU16::new(0);
+/// Book-keeping all progress bars' positions.
 static POSITIONS: OnceLock<Mutex<HashMap<ID, Pos>>> = OnceLock::new();
 
 /// Set how many on-going progress bar can be shown on the screen.
@@ -490,10 +515,12 @@ pub fn set_max_progress_bars(nbars: u16) {
     NROWS.swap(nrows, Ordering::Relaxed);
 }
 
+/// Warps the global [`POSITIONS`]
 fn positions() -> &'static Mutex<HashMap<ID, Pos>> {
     POSITIONS.get_or_init(|| Mutex::new(HashMap::new()))
 }
 
+/// Retrieve the environment width and height
 fn terminal_size() -> (u16, u16) {
     crossterm::terminal::size().unwrap_or((80, 64))
 }
