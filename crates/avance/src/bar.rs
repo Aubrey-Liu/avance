@@ -50,6 +50,53 @@ impl AvanceBar {
         }
     }
 
+    /// Advance the progress bar by n steps
+    ///     /// Advance the progress bar by one step, equal to `update(1)`
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use avance::AvanceBar;
+    /// # use std::cmp::min;
+    /// # use std::thread;
+    /// # use std::time::Duration;
+    ///
+    /// let n_bytes = 1024 * 1024;
+    /// let mut bytes_read = 0;
+    ///
+    /// let pb = AvanceBar::new(n_bytes);
+    /// pb.set_style(avance::Style::Block);
+    /// pb.set_description("reading");
+    ///
+    /// while bytes_read < n_bytes {
+    ///     bytes_read = min(bytes_read + 1378, n_bytes);
+    ///     pb.update(1378);
+    /// }
+    ///
+    /// pb.set_description("done");
+    /// ```
+    pub fn update(&self, n: u64) {
+        let mut state = self.state.lock().unwrap();
+
+        state.update(n);
+    }
+
+    /// Advance the progress bar by one step, equal to `update(1)`
+    ///
+    /// # Examples
+    /// ```
+    /// use avance::bar::AvanceBar;
+    ///
+    /// let pb = AvanceBar::new(1000);
+    /// for _ in 0..1000 {
+    ///     pb.inc();
+    ///     // do something here
+    /// }
+    /// ```
+    pub fn inc(&self) {
+        self.update(1);
+    }
+
     /// Set the description of a progress bar.
     ///
     /// For example, if you set "avance" as the description,
@@ -137,53 +184,6 @@ impl AvanceBar {
     pub fn with_style(self, style: Style) -> Self {
         self.set_style(style);
         self
-    }
-
-    /// Advance the progress bar by n steps
-    ///     /// Advance the progress bar by one step, equal to `update(1)`
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use avance::AvanceBar;
-    /// # use std::cmp::min;
-    /// # use std::thread;
-    /// # use std::time::Duration;
-    ///
-    /// let n_bytes = 1024 * 1024;
-    /// let mut bytes_read = 0;
-    ///
-    /// let pb = AvanceBar::new(n_bytes);
-    /// pb.set_style(avance::Style::Block);
-    /// pb.set_description("reading");
-    ///
-    /// while bytes_read < n_bytes {
-    ///     bytes_read = min(bytes_read + 1378, n_bytes);
-    ///     pb.update(1378);
-    /// }
-    ///
-    /// pb.set_description("done");
-    /// ```
-    pub fn update(&self, n: u64) {
-        let mut state = self.state.lock().unwrap();
-
-        state.update(n);
-    }
-
-    /// Advance the progress bar by one step, equal to `update(1)`
-    ///
-    /// # Examples
-    /// ```
-    /// use avance::bar::AvanceBar;
-    ///
-    /// let pb = AvanceBar::new(1000);
-    /// for _ in 0..1000 {
-    ///     pb.inc();
-    ///     // do something here
-    /// }
-    /// ```
-    pub fn inc(&self) {
-        self.update(1);
     }
 
     /// Manually stop the progress bar. Usually users don't have to call this
