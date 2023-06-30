@@ -369,7 +369,7 @@ impl Display for State {
         let elapsed = self.last.duration_since(self.begin).as_secs_f64();
 
         let Config { desc, width, style } = &self.config;
-        let desc = desc.clone().map_or(String::new(), |desc| desc + ": ");
+        let desc = desc.clone().map_or_else(String::new, |desc| desc + ": ");
         let terminal_width = terminal::size().map_or(80, |(c, _)| c);
         let width = width.map_or(terminal_width, |w| min(w, terminal_width));
 
@@ -399,21 +399,21 @@ impl Display for State {
 
                 let bra_ = format!("{}{:>3}%|", desc, (100.0 * pct) as usize);
                 let _ket = format!("| {}/{} [{}<{}, {:.02}it/s]", it, total, time, eta, its);
-                let tqdm = {
+                let pb = {
                     let limit = (width as usize).saturating_sub(bra_.len() + _ket.len());
                     let pattern: Vec<_> = style.as_ref().chars().collect();
-
                     let m = pattern.len();
                     let n = ((limit as f64 * pct) * m as f64) as usize;
+                    let mut filling = pattern.last().unwrap().to_string().repeat(n / m);
 
-                    let bar = pattern.last().unwrap().to_string().repeat(n / m);
-                    match n / m {
-                        x if x == limit => bar,
-                        _ => format!("{:<limit$}", format!("{}{}", bar, pattern[n % m])),
+                    if filling.len() < limit {
+                        filling.push(pattern[n % m]);
                     }
+
+                    format!("{:limit$}", filling)
                 };
 
-                fmt.write_fmt(format_args!("{}{}{}", bra_, tqdm, _ket))
+                fmt.write_fmt(format_args!("{}{}{}", bra_, pb, _ket))
             }
         }
     }
