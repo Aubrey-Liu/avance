@@ -449,16 +449,19 @@ impl Config {
 
 /// Wrapping state in arc and mutex
 type AtomicState = Arc<Mutex<State>>;
+/// Identifier of a progress bar
 type ID = u64;
+/// Position of a progress bar
 type Pos = u16;
 
 static NEXTID: AtomicU64 = AtomicU64::new(0);
 static NROWS: AtomicU16 = AtomicU16::new(0);
 static POSITIONS: OnceLock<Mutex<HashMap<ID, Pos>>> = OnceLock::new();
 
-/// This method decides how many progress bar can be shown on the screen.
+/// Set how many on-going progress bar can be shown on the screen.
+///
 /// If specified, hides bars outside this limit. If unspecified, adjusts to
-/// environment height.
+/// the terminal height.
 pub fn set_max_progress_bars(nbars: u16) {
     let nrows = max(nbars + 1, 2);
     NROWS.swap(nrows, Ordering::Relaxed);
@@ -472,6 +475,8 @@ fn terminal_size() -> (u16, u16) {
     crossterm::terminal::size().unwrap_or((80, 64))
 }
 
+/// How many rows can progress bars take up. If unspecified,
+/// uses the terminal height.
 fn nrows() -> u16 {
     let nrows = NROWS.load(Ordering::Relaxed);
 
@@ -482,6 +487,7 @@ fn nrows() -> u16 {
     }
 }
 
+/// Find the next free position
 fn next_free_pos() -> ID {
     let mut positions = positions().lock().unwrap();
     let next_id = NEXTID.fetch_add(1, Ordering::Relaxed);
@@ -491,29 +497,20 @@ fn next_free_pos() -> ID {
     next_id
 }
 
+/// When a bar is closed, rearrange the position of other progress bars.
 fn reposition(id: ID) {
     let mut positions = positions().lock().unwrap();
 
     let closed_pos = *positions.get(&id).unwrap();
-    let nrows = nrows();
-    if closed_pos >= nrows - 1 {
-        positions.remove(&id);
-        return;
-    }
 
-    if let Some((&chosen_id, _)) = positions.iter().find(|(_, &pos)| pos >= nrows) {
-        // Move an overflowed bar up to fill the blank
-        positions.remove(&id);
-        *positions.get_mut(&chosen_id).unwrap() = closed_pos;
-    } else {
-        // If we can't find an overflowed bar, move all bars upwards when bar.pos > pos
-        positions.remove(&id);
-        positions.iter_mut().for_each(|(_, pos)| {
-            if *pos > closed_pos {
-                *pos -= 1;
-            }
-        });
-    }
+    positions.remove(&id);
+
+    // Move upwards all the bars below the closed bar
+    positions.iter_mut().for_each(|(_, pos)| {
+        if *pos > closed_pos {
+            *pos -= 1;
+        }
+    });
 }
 
 #[cfg(test)]
@@ -604,10 +601,10 @@ mod tests {
 
     #[test]
     fn overflowing() {
-        set_max_progress_bars(4);
+        set_max_progress_bars(3);
 
         let threads: Vec<_> = (0..15)
-            .map(|i| thread::spawn(move || progress_bar(80 * (i % 4 + 1), 5 * (i % 2 + 1))))
+            .map(|i| thread::spawn(move || progress_bar(100 + 100 * (i % 5), 10 - i % 5)))
             .collect();
 
         for t in threads {

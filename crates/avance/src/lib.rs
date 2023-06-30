@@ -70,6 +70,6 @@ pub mod bar;
 pub mod iter;
 pub mod style;
 
-pub use bar::AvanceBar;
+pub use bar::{set_max_progress_bars, AvanceBar};
 pub use iter::{avance, AvanceIterator};
 pub use style::Style;
