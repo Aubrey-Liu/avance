@@ -8,7 +8,7 @@ use crossterm::QueueableCommand;
 use std::cmp::{max, min};
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
-use std::io::{Result, Write};
+use std::io::{stderr, Result, Write};
 use std::sync::{
     atomic::{AtomicU16, AtomicU64, Ordering},
     Arc, Mutex,
@@ -71,7 +71,7 @@ impl AvanceBar {
     pub fn set_description(&self, desc: impl ToString) {
         let mut state = self.state.lock().unwrap();
         state.config.desc = Some(desc.to_string());
-        state.draw(None).unwrap();
+        let _ = state.draw(None);
     }
 
     /// Set a progress bar's width
@@ -94,8 +94,8 @@ impl AvanceBar {
     pub fn set_width(&self, width: u16) {
         let mut state = self.state.lock().unwrap();
         state.config.width = Some(width);
-        state.clear().unwrap();
-        state.draw(None).unwrap();
+        let _ = state.clear();
+        let _ = state.draw(None);
     }
 
     /// Set the style of a progress bar.
@@ -117,7 +117,7 @@ impl AvanceBar {
     pub fn set_style(&self, style: Style) {
         let mut state = self.state.lock().unwrap();
         state.config.style = style;
-        state.draw(None).unwrap();
+        let _ = state.draw(None);
     }
 
     /// Advance the progress bar by n steps
@@ -178,14 +178,15 @@ impl AvanceBar {
 
         reposition(state.id);
 
+        // Don't update when there's nothing new
         if !matches!(state.total, Some(t) if t == state.n) {
             state.force_update();
         }
-        state.draw(Some(0)).unwrap();
+        let _ = state.draw(Some(0));
 
         let mut target = std::io::stderr().lock();
         if target.is_tty() {
-            writeln!(target).unwrap();
+            let _ = writeln!(target);
         }
     }
 
@@ -195,8 +196,7 @@ impl AvanceBar {
     /// This method will panic when another thread was using a progress bar and panicked.
     fn refresh(&self) {
         let state = self.state.lock().unwrap();
-
-        state.draw(None).unwrap();
+        let _ = state.draw(None);
     }
 }
 
@@ -212,7 +212,7 @@ struct State {
     begin: Instant,
     last: Instant,
     interval: f64,
-    id: PosID,
+    id: ID,
     n: u64,
     cached: u64,
     total: Option<u64>,
@@ -237,12 +237,12 @@ impl State {
 
         if matches!(self.total, Some(total) if self.n + self.cached >= total) {
             self.force_update();
-            self.draw(None).unwrap();
+            let _ = self.draw(None);
         } else if self.last.elapsed().as_secs_f64() >= self.interval {
             self.n += self.cached;
             self.cached = 0;
             self.last = Instant::now();
-            self.draw(None).unwrap();
+            let _ = self.draw(None);
         }
     }
 
@@ -257,11 +257,11 @@ impl State {
     }
 
     fn draw(&self, pos: Option<u16>) -> Result<()> {
-        let mut target = std::io::stderr().lock();
-        if !target.is_tty() {
+        if !self.drawable() {
             return Ok(());
         }
 
+        let mut target = std::io::stderr().lock();
         let pos = if let Some(pos) = pos {
             pos
         } else {
@@ -294,12 +294,16 @@ impl State {
         target.flush()
     }
 
+    fn drawable(&self) -> bool {
+        stderr().is_tty() && self.try_get_pos().is_some()
+    }
+
     fn clear(&self) -> Result<()> {
-        let mut target = std::io::stderr().lock();
-        if !target.is_tty() {
+        if !self.drawable() {
             return Ok(());
         }
 
+        let mut target = std::io::stderr().lock();
         let pos = self.get_pos();
         let nrows = nrows();
         if pos >= nrows {
@@ -318,7 +322,7 @@ impl State {
 
     fn try_get_pos(&self) -> Option<Pos> {
         let positions = positions().lock().unwrap();
-        positions.get(&self.id).map(|p| *p)
+        positions.get(&self.id).copied()
     }
 
     fn get_pos(&self) -> Pos {
@@ -400,12 +404,12 @@ impl Config {
 
 /// Wrapping state in arc and mutex
 type AtomicState = Arc<Mutex<State>>;
-type PosID = u64;
+type ID = u64;
 type Pos = u16;
 
 static NEXTID: AtomicU64 = AtomicU64::new(0);
 static NROWS: AtomicU16 = AtomicU16::new(0);
-static POSITIONS: OnceLock<Mutex<HashMap<PosID, Pos>>> = OnceLock::new();
+static POSITIONS: OnceLock<Mutex<HashMap<ID, Pos>>> = OnceLock::new();
 
 /// This method decides how many progress bar can be shown on the screen.
 /// If specified, hides bars outside this limit. If unspecified, adjusts to
@@ -415,7 +419,7 @@ pub fn set_max_progress_bars(nbars: u16) {
     NROWS.swap(nrows, Ordering::Relaxed);
 }
 
-fn positions() -> &'static Mutex<HashMap<PosID, Pos>> {
+fn positions() -> &'static Mutex<HashMap<ID, Pos>> {
     POSITIONS.get_or_init(|| Mutex::new(HashMap::new()))
 }
 
@@ -433,7 +437,7 @@ fn nrows() -> u16 {
     }
 }
 
-fn next_free_pos() -> PosID {
+fn next_free_pos() -> ID {
     let mut positions = positions().lock().unwrap();
     let next_id = NEXTID.fetch_add(1, Ordering::Relaxed);
     let next_pos = positions.values().max().map(|n| n + 1).unwrap_or(0);
@@ -442,7 +446,7 @@ fn next_free_pos() -> PosID {
     next_id
 }
 
-fn reposition(id: PosID) {
+fn reposition(id: ID) {
     let mut positions = positions().lock().unwrap();
 
     let closed_pos = *positions.get(&id).unwrap();
@@ -477,7 +481,7 @@ mod tests {
         for _ in 0..n {
             pb.update(1);
 
-            std::thread::sleep(Duration::from_millis(interval));
+            thread::sleep(Duration::from_millis(interval));
         }
     }
 
