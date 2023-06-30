@@ -220,6 +220,29 @@ impl AvanceBar {
 }
 
 impl Clone for AvanceBar {
+    /// For convenient reusing of a progress bar
+    ///
+    /// # Examples
+    /// ```     
+    /// use avance::{AvanceBar, Style};  
+    ///
+    /// let pb = AvanceBar::new(100)
+    ///     .with_style(Style::Balloon)
+    ///     .with_width(90)
+    ///     .with_desc("task1");
+    ///  
+    /// for _ in 0..100 {
+    ///     // ...
+    ///     pb.inc();
+    /// }
+    ///
+    /// // reuse the style and width of pb
+    /// let pb = pb.clone().with_desc("task2");
+    /// for _ in 0..100 {
+    ///     // ...
+    ///     pb.inc();
+    /// }
+    /// ```
     fn clone(&self) -> Self {
         let old_state = self.state.lock().unwrap();
         let mut state = State::new(old_state.total);
