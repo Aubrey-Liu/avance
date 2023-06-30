@@ -399,19 +399,29 @@ impl Display for State {
 
                 let bra_ = format!("{}{:>3}%|", desc, (100.0 * pct) as usize);
                 let _ket = format!("| {}/{} [{}<{}, {:.02}it/s]", it, total, time, eta, its);
-                let pb = {
-                    let limit = (width as usize).saturating_sub(bra_.len() + _ket.len());
-                    let pattern: Vec<_> = style.as_ref().chars().collect();
-                    let m = pattern.len();
-                    let n = ((limit as f64 * pct) * m as f64) as usize;
-                    let mut filling = pattern.last().unwrap().to_string().repeat(n / m);
 
-                    if filling.len() < limit {
-                        filling.push(pattern[n % m]);
-                    }
+                let limit = (width as usize).saturating_sub(bra_.len() + _ket.len());
 
-                    format!("{:limit$}", filling)
-                };
+                let style: Vec<_> = style.as_ref().chars().collect();
+                let background = style[0];
+                let pattern = &style[1..];
+
+                let m = pattern.len();
+                let n = ((limit as f64 * pct) * m as f64) as usize;
+                let filled = n / m;
+
+                let mut pb = pattern.last().unwrap().to_string().repeat(filled);
+
+                if filled < limit {
+                    pb.push(pattern[n % m]);
+                }
+
+                let filled = filled + 1;
+                if filled < limit {
+                    let padding = background.to_string().repeat(limit - filled);
+
+                    pb.push_str(&padding);
+                }
 
                 fmt.write_fmt(format_args!("{}{}{}", bra_, pb, _ket))
             }

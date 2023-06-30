@@ -6,7 +6,7 @@ use avance::AvanceBar;
 fn main() {
     let total = 1000;
     let mut v = vec![0; total];
-    let pb = AvanceBar::new(total as u64);
+    let pb1 = AvanceBar::new(total as u64).with_desc("multi");
     std::thread::scope(|t| {
         for chunk in v.chunks_mut(total / 4) {
             t.spawn(|| {
@@ -16,14 +16,14 @@ fn main() {
                     // Suppose we're doing some io tasks
                     thread::sleep(Duration::from_millis(2));
 
-                    pb.inc();
+                    pb1.inc();
                 }
             });
         }
     });
-    pb.close();
+    pb1.close();
 
-    let pb = AvanceBar::new(total as u64);
+    let pb2 = AvanceBar::new(total as u64).with_desc("single");
     std::thread::scope(|t| {
         t.spawn(|| {
             for x in &mut v {
@@ -31,7 +31,7 @@ fn main() {
 
                 thread::sleep(Duration::from_millis(2));
 
-                pb.inc();
+                pb2.inc();
             }
         });
     });
