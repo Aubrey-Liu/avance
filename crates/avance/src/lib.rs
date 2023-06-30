@@ -35,10 +35,10 @@
 //! use avance::AvanceBar;
 //! use avance::Style;
 //!
-//! let pb = AvanceBar::new(100);
-//! pb.set_style(Style::Balloon);
-//! pb.set_width(80);
-//! pb.set_description("avance");
+//! let pb = AvanceBar::new(100)
+//!     .with_style(Style::Balloon)
+//!     .with_width(80)
+//!     .with_desc("avance");
 //! ```
 //!
 //! Behaviors:
