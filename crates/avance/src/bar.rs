@@ -23,6 +23,7 @@ use std::sync::OnceLock;
 use crate::style::Style;
 
 /// The progress bar
+#[derive(Debug)]
 pub struct AvanceBar {
     state: AtomicState,
 }
@@ -120,6 +121,24 @@ impl AvanceBar {
         let _ = state.draw(None);
     }
 
+    /// Builder-like function for a progress bar with description
+    pub fn with_desc(self, desc: impl ToString) -> Self {
+        self.set_description(desc);
+        self
+    }
+
+    /// Builder-like function for a progress bar with width
+    pub fn with_width(self, width: u16) -> Self {
+        self.set_width(width);
+        self
+    }
+
+    /// Builder-like function for a progress bar with style
+    pub fn with_style(self, style: Style) -> Self {
+        self.set_style(style);
+        self
+    }
+
     /// Advance the progress bar by n steps
     ///     /// Advance the progress bar by one step, equal to `update(1)`
     ///
@@ -200,6 +219,20 @@ impl AvanceBar {
     }
 }
 
+impl Clone for AvanceBar {
+    fn clone(&self) -> Self {
+        let old_state = self.state.lock().unwrap();
+        let mut state = State::new(old_state.total);
+        state.config = old_state.config.clone();
+
+        let pb = Self {
+            state: Arc::new(Mutex::new(state)),
+        };
+        pb.refresh();
+        pb
+    }
+}
+
 impl Drop for AvanceBar {
     /// Automatically close a progress bar when it's dropped.
     fn drop(&mut self) {
@@ -207,6 +240,7 @@ impl Drop for AvanceBar {
     }
 }
 
+#[derive(Debug, Clone)]
 struct State {
     config: Config,
     begin: Instant,
@@ -386,7 +420,8 @@ impl Display for State {
 }
 
 /// Config decides how a progress bar is displayed
-pub struct Config {
+#[derive(Debug, Clone)]
+struct Config {
     style: Style,
     width: Option<u16>,
     desc: Option<String>,
@@ -492,7 +527,7 @@ mod tests {
 
     #[test]
     fn basic_bar() {
-        progress_bar(100, 10);
+        progress_bar(100, 5);
     }
 
     #[test]
@@ -500,7 +535,30 @@ mod tests {
         let pb = AvanceBar::new(100);
         pb.set_width(60);
 
-        progress_bar_ref(&pb, 100, 10);
+        progress_bar_ref(&pb, 100, 5);
+    }
+
+    #[test]
+    fn reuse() {
+        let pb = AvanceBar::new(100);
+        pb.set_style(Style::Balloon);
+        pb.set_width(90);
+
+        progress_bar_ref(&pb, 100, 5);
+
+        // style and width can be reused
+        let pb2 = pb.clone();
+        progress_bar_ref(&pb2, 100, 5);
+    }
+
+    #[test]
+    fn method_chain() {
+        let pb = AvanceBar::new(100)
+            .with_style(Style::Block)
+            .with_width(90)
+            .with_desc("task1");
+
+        progress_bar_ref(&pb, 100, 5);
     }
 
     #[test]
