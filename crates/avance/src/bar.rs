@@ -190,12 +190,10 @@ impl AvanceBar {
     /// method directly, as a progress bar will close automatically when dropped.
     pub fn close(&self) {
         let mut state = self.state.lock().unwrap();
-        if state.try_get_pos().is_none() {
+        if !state.drawable() {
             // already closed
             return;
         }
-
-        reposition(state.id);
 
         // Don't update when there's nothing new
         if !matches!(state.total, Some(t) if t == state.n) {
@@ -207,6 +205,8 @@ impl AvanceBar {
         if target.is_tty() {
             let _ = writeln!(target);
         }
+
+        reposition(state.id);
     }
 
     /// Refresh the progress bar.
@@ -295,7 +295,7 @@ impl State {
             return Ok(());
         }
 
-        let mut target = std::io::stderr().lock();
+        let mut target = stderr().lock();
         let pos = if let Some(pos) = pos {
             pos
         } else {
@@ -337,7 +337,7 @@ impl State {
             return Ok(());
         }
 
-        let mut target = std::io::stderr().lock();
+        let mut target = stderr().lock();
         let pos = self.get_pos();
         let nrows = nrows();
         if pos >= nrows {
@@ -485,12 +485,13 @@ fn reposition(id: ID) {
     let mut positions = positions().lock().unwrap();
 
     let closed_pos = *positions.get(&id).unwrap();
-    if closed_pos >= nrows() - 1 {
+    let nrows = nrows();
+    if closed_pos >= nrows - 1 {
         positions.remove(&id);
         return;
     }
 
-    if let Some((&chosen_id, _)) = positions.iter().find(|(_, &pos)| pos >= nrows()) {
+    if let Some((&chosen_id, _)) = positions.iter().find(|(_, &pos)| pos >= nrows) {
         // Move an overflowed bar up to fill the blank
         positions.remove(&id);
         *positions.get_mut(&chosen_id).unwrap() = closed_pos;
