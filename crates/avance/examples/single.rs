@@ -1,12 +1,10 @@
 use std::thread;
 use std::time::Duration;
 
-use avance::AvanceBar;
+use avance::AvanceIterator;
 
 fn main() {
-    let pb = AvanceBar::new(1000);
-    for _ in 0..1000 {
-        pb.inc();
+    for _ in (0..1000).fuse().avance() {
         thread::sleep(Duration::from_millis(5));
     }
 }

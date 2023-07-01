@@ -96,7 +96,28 @@ impl<Iter: Iterator> Iterator for AvanceIter<Iter> {
 
     fn next(&mut self) -> Option<Self::Item> {
         if let Some(next) = self.iter.next() {
-            self.bar.update(1);
+            self.bar.inc();
+            Some(next)
+        } else {
+            None
+        }
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.iter.size_hint()
+    }
+}
+
+impl<Iter: ExactSizeIterator> ExactSizeIterator for AvanceIter<Iter> {
+    fn len(&self) -> usize {
+        self.iter.len()
+    }
+}
+
+impl<Iter: DoubleEndedIterator> DoubleEndedIterator for AvanceIter<Iter> {
+    fn next_back(&mut self) -> Option<Self::Item> {
+        if let Some(next) = self.iter.next_back() {
+            self.bar.inc();
             Some(next)
         } else {
             None
