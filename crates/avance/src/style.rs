@@ -13,11 +13,16 @@ use strum::AsRefStr;
 /// the filling is '#', and "0123456789" is used for the in-progress unit.
 #[derive(Debug, Clone, Copy, Default, AsRefStr)]
 pub enum Style {
+    /// Representation: `|######7             |`
     #[default]
     #[strum(serialize = " 0123456789#")]
     ASCII,
+
+    /// Representation: `|███████             |`
     #[strum(serialize = "  ▏▎▍▌▋▊▉█")]
     Block,
+
+    /// Representation: `|******@             |`
     #[strum(serialize = " .oO@*")]
     Balloon,
 }
