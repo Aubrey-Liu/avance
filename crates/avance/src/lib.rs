@@ -65,6 +65,10 @@
 //!     // ...
 //! }
 //! ```
+//!
+//! # TODOs:
+//! - [ ] Support user-defined progress bar style
+//! - [ ] Implement Read & Write traits for [`AvanceIter`](iter::AvanceIter)
 
 pub mod bar;
 pub mod iter;

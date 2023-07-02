@@ -5,16 +5,18 @@ use std::ops::{Deref, DerefMut};
 use crate::{bar::AvanceBar, Style};
 
 /// An iterator wrapper that shows a progress bar
-pub struct AvanceIter<Iter: Iterator> {
+pub struct AvanceIter<Iter> {
     iter: Iter,
     bar: AvanceBar,
 }
 
+/// Wraps an iterator to display its progress
 pub trait AvanceIterator
 where
     Self: Sized + Iterator,
 {
-    /// Wraps an iterator to display a progress bar.
+    /// Wraps an iterator to display its progress, using the upper hound
+    /// of iterator's size as the total length of the progress bar.
     ///
     /// # Examples
     ///
@@ -36,7 +38,7 @@ where
 impl<Iter: Iterator> AvanceIter<Iter> {
     /// Set the style of a progress bar.
     ///
-    /// See available styles in [`Style`]
+    /// See [AvanceBar::set_style]
     ///
     /// # Examples
     ///
@@ -54,6 +56,8 @@ impl<Iter: Iterator> AvanceIter<Iter> {
 
     /// Set the description of a progress bar.
     ///
+    /// See [AvanceBar::set_description].
+    ///
     /// # Examples
     ///
     /// ```
@@ -70,8 +74,7 @@ impl<Iter: Iterator> AvanceIter<Iter> {
 
     /// Set a progress bar's width
     ///
-    /// If width is larger than terminal width, progress bar will adjust
-    /// to the terminal width.
+    /// See [AvanceBar::set_width].
     ///
     /// # Examples
     ///

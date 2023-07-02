@@ -44,6 +44,7 @@ impl AvanceBar {
         pb
     }
 
+    /// Create a progress bar from an iterator's size hint
     pub(crate) fn with_hint(size_hint: Option<usize>) -> Self {
         AvanceBar {
             state: Arc::new(Mutex::new(State::new(size_hint.map(|s| s as u64)))),
@@ -263,6 +264,7 @@ impl Drop for AvanceBar {
     }
 }
 
+/// The inner state of a progress bar
 #[derive(Debug, Clone)]
 struct State {
     config: Config,
