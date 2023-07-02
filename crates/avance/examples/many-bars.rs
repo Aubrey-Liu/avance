@@ -10,7 +10,7 @@ fn main() {
         for i in 0..15 {
             t.spawn(move || {
                 let pb = AvanceBar::new(1200);
-                pb.set_description(format!("task{}", i));
+                pb.set_desc(format!("task{}", i));
 
                 for _ in 0..1200 {
                     thread::sleep(Duration::from_millis(3 + i % 5));

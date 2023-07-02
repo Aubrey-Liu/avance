@@ -17,5 +17,5 @@ fn main() {
         thread::sleep(Duration::from_millis(5));
     }
 
-    pb.set_description("done");
+    pb.set_desc("done");
 }

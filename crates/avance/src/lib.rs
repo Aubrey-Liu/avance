@@ -57,13 +57,13 @@
 //! use avance::Style;
 //!
 //! // methods can be chained
-//! for _ in (0..100).avance().style(Style::ASCII).width(80) {
+//! for _ in (0..100).avance().with_style(Style::ASCII).with_width(80) {
 //!     // ...
 //! }
 //!
-//! // also supports build a progress bar like this
+//! // also supports build a progress bar in this way
 //! use avance::avance;
-//! for _ in avance(0..100).style(Style::Balloon).desc("avance") {
+//! for _ in avance(0..100).with_style(Style::Balloon).with_desc("avance") {
 //!     // ...
 //! }
 //! ```
@@ -77,5 +77,5 @@ pub mod iter;
 pub mod style;
 
 pub use bar::{set_max_progress_bars, AvanceBar};
-pub use iter::{avance, AvanceIterator};
+pub use iter::{avance, AvanceIter, AvanceIterator};
 pub use style::Style;

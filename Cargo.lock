@@ -60,6 +60,18 @@ checksum = "d468802bab17cbc0cc575e9b053f41e72aa36bfa6b7f55e3529ffa43161b97fa"
 [[package]]
 name = "avance"
 version = "0.4.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fe1bfa68d33ccc661a27d60090fab74065c7bfdf6304a92a3b03327a7422080f"
+dependencies = [
+ "crossterm",
+ "once_cell",
+ "strum",
+ "version_check",
+]
+
+[[package]]
+name = "avance"
+version = "0.5.0"
 dependencies = [
  "crossterm",
  "once_cell",
@@ -71,7 +83,7 @@ dependencies = [
 name = "avance-cli"
 version = "0.1.0"
 dependencies = [
- "avance",
+ "avance 0.4.4",
  "clap",
  "version",
 ]

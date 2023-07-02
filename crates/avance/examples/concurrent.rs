@@ -26,7 +26,7 @@ fn main() {
     });
     pb1.close();
 
-    let pb2 = pb1.clone().with_desc("x1");
+    let pb2 = AvanceBar::with_config_of(&pb1).with_desc("x1");
     std::thread::scope(|t| {
         t.spawn(|| {
             for x in &mut v {

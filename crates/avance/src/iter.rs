@@ -6,8 +6,8 @@ use crate::{bar::AvanceBar, Style};
 
 /// An iterator wrapper that shows a progress bar
 pub struct AvanceIter<Iter> {
-    iter: Iter,
-    bar: AvanceBar,
+    pub(crate) iter: Iter,
+    pub(crate) bar: AvanceBar,
 }
 
 /// Wraps an iterator to display its progress
@@ -17,6 +17,10 @@ where
 {
     /// Wraps an iterator to display its progress, using the upper hound
     /// of iterator's size as the total length of the progress bar.
+    ///
+    /// See other ways of progressing with an iterator at:
+    /// - [`avance`]
+    /// - [`AvanceBar::with_iter`]
     ///
     /// # Examples
     ///
@@ -45,30 +49,30 @@ impl<Iter: Iterator> AvanceIter<Iter> {
     /// ```
     /// use avance::{AvanceIterator, Style};
     ///
-    /// for _ in (0..1000).avance().style(Style::Balloon) {
+    /// for _ in (0..1000).avance().with_style(Style::Balloon) {
     ///     // do something here
     /// }
     /// ```
-    pub fn style(self, style: Style) -> Self {
+    pub fn with_style(self, style: Style) -> Self {
         self.bar.set_style(style);
         self
     }
 
     /// Set the description of a progress bar.
     ///
-    /// See [AvanceBar::set_description].
+    /// See [AvanceBar::set_desc].
     ///
     /// # Examples
     ///
     /// ```
     /// use avance::{AvanceIterator, Style};
     ///
-    /// for _ in (0..1000).avance().desc("task name") {
+    /// for _ in (0..1000).avance().with_desc("task name") {
     ///     // do something here
     /// }
     /// ```
-    pub fn desc(self, desc: impl ToString) -> Self {
-        self.bar.set_description(desc);
+    pub fn with_desc(self, desc: impl ToString) -> Self {
+        self.bar.set_desc(desc);
         self
     }
 
@@ -81,11 +85,11 @@ impl<Iter: Iterator> AvanceIter<Iter> {
     /// ```
     /// use avance::{AvanceIterator, Style};
     ///
-    /// for _ in (0..1000).avance().width(80) {
+    /// for _ in (0..1000).avance().with_width(80) {
     ///     // do something here
     /// }
     /// ```
-    pub fn width(self, width: u16) -> Self {
+    pub fn with_width(self, width: u16) -> Self {
         self.bar.set_width(width);
         self
     }
@@ -143,6 +147,19 @@ impl<Iter: Iterator> DerefMut for AvanceIter<Iter> {
 }
 
 /// Wraps an iterator to display a progress bar.
+///     
+/// See other ways of progressing with iterators at:
+/// - [`AvanceIterator`]
+/// - [`AvanceBar::with_iter`]
+///
+/// # Examples
+/// ```
+/// use avance::*;
+///
+/// for _ in (0..1000).avance() {
+///     // do something here
+/// }
+/// ```
 pub fn avance<Iter: Iterator>(iter: Iter) -> AvanceIter<Iter> {
     AvanceIter {
         bar: AvanceBar::with_hint(iter.size_hint().1),
@@ -167,9 +184,9 @@ mod tests {
     fn associated_methods() {
         for _ in (0..100)
             .avance()
-            .style(Style::Block)
-            .desc("avance")
-            .width(85)
+            .with_style(Style::Block)
+            .with_desc("avance")
+            .with_width(85)
         {
             thread::sleep(Duration::from_millis(20));
         }
