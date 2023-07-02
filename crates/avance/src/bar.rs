@@ -15,9 +15,9 @@ use std::sync::{
 };
 use std::time::Instant;
 
-#[cfg(extern_once_cell)]
+#[cfg(has_std_once_cell = "false")]
 use once_cell::sync::OnceCell as OnceLock;
-#[cfg(std_once_cell)]
+#[cfg(has_std_once_cell = "true")]
 use std::sync::OnceLock;
 
 use crate::style::Style;
@@ -365,6 +365,7 @@ impl State {
 
     /// Is a progress bar able to be displayed
     fn drawable(&self) -> bool {
+        // is_terminal is stable on 1.70.0
         stderr().is_tty() && self.try_get_pos().is_some()
     }
 
