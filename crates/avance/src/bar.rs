@@ -178,6 +178,16 @@ impl AvanceBar {
         let _ = state.draw(None);
     }
 
+    /// Set the postfix of a progress bar.
+    ///
+    /// Postfix is usually used for dynamically displaying some
+    /// additional information, such as the accuracy when training a model.
+    pub fn set_postfix(&self, postfix: impl ToString) {
+        let mut state = self.state.lock().unwrap();
+        state.config.postfix = Some(postfix.to_string());
+        let _ = state.draw(None);
+    }
+
     /// Set a progress bar's width
     ///
     /// If width is larger than terminal width, progress bar will adjust
@@ -450,10 +460,23 @@ impl Display for State {
     fn fmt(&self, fmt: &mut Formatter<'_>) -> std::fmt::Result {
         let elapsed = self.last.duration_since(self.begin).as_secs_f64();
 
-        let Config { desc, width, style } = &self.config;
-        let desc = desc.clone().map_or_else(String::new, |desc| desc + ": ");
+        let desc = self
+            .config
+            .desc
+            .as_ref()
+            .map_or_else(String::new, |desc| format!("{}: ", desc));
+
+        let postfix = self
+            .config
+            .postfix
+            .as_ref()
+            .map_or_else(String::new, |p| format!(", {}", p));
+
         let terminal_width = terminal::size().map_or(80, |(c, _)| c);
-        let width = width.map_or(terminal_width, |w| min(w, terminal_width));
+        let width = self
+            .config
+            .width
+            .map_or(terminal_width, |w| min(w, terminal_width));
 
         /// Time formatting function, which omits the leading 0s
         fn ftime(seconds: usize) -> String {
@@ -470,7 +493,10 @@ impl Display for State {
         let time = ftime(elapsed as usize);
 
         match self.total {
-            None => fmt.write_fmt(format_args!("{}{}it [{}, {:.02}it/s]", desc, it, time, its)),
+            None => fmt.write_fmt(format_args!(
+                "{}{}it [{}, {:.02}it/s]{}",
+                desc, it, time, its, postfix
+            )),
 
             Some(total) => {
                 let pct = (it as f64 / total as f64).clamp(0.0, 1.0);
@@ -480,11 +506,14 @@ impl Display for State {
                 };
 
                 let bra_ = format!("{}{:>3}%|", desc, (100.0 * pct) as usize);
-                let _ket = format!("| {}/{} [{}<{}, {:.02}it/s]", it, total, time, eta, its);
+                let _ket = format!(
+                    "| {}/{} [{}<{}, {:.02}it/s{}]",
+                    it, total, time, eta, its, postfix
+                );
 
                 let limit = (width as usize).saturating_sub(bra_.len() + _ket.len());
 
-                let style: Vec<_> = style.as_ref().chars().collect();
+                let style: Vec<_> = self.config.style.as_ref().chars().collect();
                 let background = style[0];
                 let pattern = &style[1..];
 
@@ -498,6 +527,7 @@ impl Display for State {
                     pb.push(pattern[n % m]);
                 }
 
+                // Unicode width is not considered
                 let filled = filled + 1;
                 if filled < limit {
                     let padding = background.to_string().repeat(limit - filled);
@@ -528,6 +558,7 @@ struct Config {
     style: Style,
     width: Option<u16>,
     desc: Option<String>,
+    postfix: Option<String>,
 }
 
 impl Config {
@@ -537,6 +568,7 @@ impl Config {
             style: Style::default(),
             desc: None,
             width: None,
+            postfix: None,
         }
     }
 }
