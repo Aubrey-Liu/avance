@@ -1,4 +1,4 @@
-#![deny(missing_docs)]
+#![warn(missing_docs)]
 
 //! avance is a rust library that helps you easily report progress in
 //! command line applications. It supports tracing progress in concurrent programs, and

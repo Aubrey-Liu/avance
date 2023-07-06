@@ -32,10 +32,7 @@ where
     /// }
     /// ```
     fn avance(self) -> AvanceIter<Self> {
-        AvanceIter {
-            bar: AvanceBar::with_hint(self.size_hint().1),
-            iter: self,
-        }
+        avance(self)
     }
 }
 
@@ -156,7 +153,7 @@ impl<Iter: Iterator> DerefMut for AvanceIter<Iter> {
 /// ```
 /// use avance::*;
 ///
-/// for _ in (0..1000).avance() {
+/// for _ in avance(0..1000) {
 ///     // do something here
 /// }
 /// ```
@@ -198,7 +195,7 @@ mod tests {
             if i > 200 {
                 break;
             }
-            thread::sleep(Duration::from_millis(20));
+            thread::sleep(Duration::from_millis(5));
         }
     }
 }

@@ -23,7 +23,7 @@ use std::sync::OnceLock;
 use super::*;
 
 /// The progress bar
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct AvanceBar {
     state: AtomicState,
 }
@@ -274,23 +274,7 @@ impl AvanceBar {
     /// dropped (Closing order is equal to the rendering order).
     pub fn close(&self) {
         let mut state = self.state.lock().unwrap();
-        if !state.drawable() {
-            // already closed
-            return;
-        }
-
-        // Don't update when there's nothing new
-        if !matches!(state.total, Some(t) if t == state.n) {
-            state.force_update();
-        }
-        let _ = state.draw(Some(0));
-
-        let mut target = std::io::stderr().lock();
-        if target.is_tty() {
-            let _ = writeln!(target);
-        }
-
-        reposition(state.id);
+        state.close();
     }
 
     /// Refresh the progress bar.
@@ -300,13 +284,6 @@ impl AvanceBar {
     fn refresh(&self) {
         let state = self.state.lock().unwrap();
         let _ = state.draw(None);
-    }
-}
-
-impl Drop for AvanceBar {
-    /// Automatically close a progress bar when it's dropped.
-    fn drop(&mut self) {
-        self.close();
     }
 }
 
@@ -440,6 +417,26 @@ impl State {
         target.flush()
     }
 
+    pub fn close(&mut self) {
+        if !self.drawable() {
+            // already closed
+            return;
+        }
+
+        // Don't update when there's nothing new
+        if !matches!(self.total, Some(t) if t == self.n) {
+            self.force_update();
+        }
+        let _ = self.draw(Some(0));
+
+        let mut target = std::io::stderr().lock();
+        if target.is_tty() {
+            let _ = writeln!(target);
+        }
+
+        reposition(self.id);
+    }
+
     /// Try to find a progress bar's position. If none, means the bar has already been closed.
     fn try_get_pos(&self) -> Option<Pos> {
         let positions = positions().lock().unwrap();
@@ -549,6 +546,13 @@ impl Clone for State {
             config: self.config.clone(),
             ..new_state
         }
+    }
+}
+
+impl Drop for State {
+    /// Automatically close a progress bar when it's dropped.
+    fn drop(&mut self) {
+        self.close();
     }
 }
 
