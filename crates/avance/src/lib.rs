@@ -48,7 +48,7 @@
 //!   - [`inc`](AvanceBar::inc) or [`update`](AvanceBar::update)
 //!   - configuration changes (such as changing its style or width)
 //! - If a progress bar's width is too large, environment width will be used instead.
-//! - A progress bar can be **shared among threads safely**.
+//! - A progress bar can be **shared among threads fearlessly**.
 //!
 //! # Iterator
 //!

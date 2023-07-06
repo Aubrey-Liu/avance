@@ -1,7 +1,8 @@
-use avance::{AvanceBar, Style};
 use std::cmp::min;
 use std::thread;
 use std::time::Duration;
+
+use avance::*;
 
 fn main() {
     let n_bytes = 1024 * 1024;

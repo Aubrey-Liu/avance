@@ -4,7 +4,7 @@ use strum::AsRefStr;
 
 /// Styles of a progress bar
 ///
-/// The overall pattern is like "{Filling} {In-progress} {Background}" (left to right):
+/// An abstract pattern is like "{Filling} {In-progress} {Background}" (left to right):
 /// - Background (the first character)
 /// - Filling (the last character)
 /// - In-progress Unit, which is the rightmost unit of the filled part (Use other characters in order)
@@ -13,16 +13,16 @@ use strum::AsRefStr;
 /// the filling is '#', and "0123456789" is used for the in-progress unit.
 #[derive(Debug, Clone, Copy, Default, AsRefStr)]
 pub enum Style {
-    /// Representation: `|######7             |`
+    /// Presentation: `|######7             |`
     #[default]
     #[strum(serialize = " 0123456789#")]
     ASCII,
 
-    /// Representation: `|███████             |`
+    /// Presentation: `|███████             |`
     #[strum(serialize = "  ▏▎▍▌▋▊▉█")]
     Block,
 
-    /// Representation: `|******@             |`
+    /// Presentation: `|******@             |`
     #[strum(serialize = " .oO@*")]
     Balloon,
 }

@@ -1,7 +1,7 @@
 use std::thread;
 use std::time::Duration;
 
-use avance::{set_max_progress_bars, AvanceBar};
+use avance::*;
 
 fn main() {
     set_max_progress_bars(3);
