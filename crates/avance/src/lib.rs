@@ -2,7 +2,7 @@
 
 //! avance is a rust library that helps you easily report progress in
 //! command line applications. It supports tracing progress in concurrent programs, and
-//! also offers various utilities for formatting progress bars.
+//! also offers various utilities for customizing a progress bar.
 //!
 //! avance means advance or progress in spanish. This naming was inspired by
 //! [tqdm](https://github.com/tqdm/tqdm), which was named after an arabic word.
@@ -32,7 +32,7 @@
 //! // Don't need to close a bar manually. It will close automatically when being dropped.
 //! ```
 //!
-//! You're able to adjust the width, style and other attributes of the progress bar.
+//! You're able to adjust the width, style and many other configs of a progress bar.
 //! ```
 //! use avance::{AvanceBar, Style};
 //!
@@ -42,10 +42,13 @@
 //!     .with_desc("avance");
 //! ```
 //!
-//! Behaviors:
-//! * A progress bar will refresh when (1) created (2) `set_*` or `update` are called (3) closed
-//! * If width is too large, it will be adjusted to environment width
-//! * A progress bar can be safely shared among threads, without damaging the display.
+//! ## Behaviors:
+//! - A progress bar will refresh when:
+//!   - [`new`](AvanceBar::new) or [`close`](AvanceBar::close)
+//!   - [`inc`](AvanceBar::inc) or [`update`](AvanceBar::update)
+//!   - configuration changes (such as changing its style or width)
+//! - If a progress bar's width is too large, environment width will be used instead.
+//! - A progress bar can be **shared among threads safely**.
 //!
 //! # Iterator
 //!
@@ -58,7 +61,7 @@
 //!     // ...
 //! }
 //!
-//! // also supports changing the progress bar when iterating
+//! // avance provides the flexibility of changing a progress bar when iterating
 //! for (_, pb) in (0..100).avance().with_pb() {
 //!     // ...
 //!     pb.set_postfix("");
