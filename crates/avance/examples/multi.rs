@@ -22,8 +22,7 @@ fn main() {
             }
         });
         t.spawn(|| {
-            let pb = AvanceBar::new(800);
-            pb.set_desc("task3");
+            let pb = AvanceBar::new(800).with_desc("task3");
 
             for _ in 0..800 {
                 thread::sleep(Duration::from_millis(8));

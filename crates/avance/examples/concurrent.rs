@@ -6,6 +6,7 @@ use avance::*;
 fn main() {
     let total = 1000;
     let mut v = vec![0; total];
+
     let pb1 = AvanceBar::new(total as u64)
         .with_style(Style::Balloon)
         .with_desc("x8");
