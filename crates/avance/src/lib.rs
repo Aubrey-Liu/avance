@@ -22,20 +22,19 @@
 //! progress statistics, and can be used in the bounded or unbounded way.
 //!
 //! ```
-//! use avance::bar::AvanceBar;
+//! use avance::AvanceBar;
 //!
 //! let pb = AvanceBar::new(100);
 //! for _ in 0..100 {
+//!     // ...
 //!     pb.inc();
-//!     // do something here
 //! }
 //! // Don't need to close a bar manually. It will close automatically when being dropped.
 //! ```
 //!
 //! You're able to adjust the width, style and other attributes of the progress bar.
 //! ```
-//! use avance::AvanceBar;
-//! use avance::Style;
+//! use avance::{AvanceBar, Style};
 //!
 //! let pb = AvanceBar::new(100)
 //!     .with_style(Style::Balloon)
@@ -53,18 +52,16 @@
 //! Progress bar can also be associated with an iterator.
 //!
 //! ```
-//! use avance::AvanceIterator;
-//! use avance::Style;
+//! use avance::{AvanceIterator, Style};
 //!
-//! // methods can be chained
 //! for _ in (0..100).avance().with_style(Style::ASCII).with_width(80) {
 //!     // ...
 //! }
 //!
-//! // also supports build a progress bar in this way
-//! use avance::avance;
-//! for _ in avance(0..100).with_style(Style::Balloon).with_desc("avance") {
+//! // also supports changing the progress bar when iterating
+//! for (_, pb) in (0..100).avance().with_pb() {
 //!     // ...
+//!     pb.set_postfix("");
 //! }
 //! ```
 //!
@@ -77,5 +74,5 @@ pub mod iter;
 pub mod style;
 
 pub use bar::{set_max_progress_bars, AvanceBar};
-pub use iter::{avance, AvanceIter, AvanceIterator};
+pub use iter::{AvanceBarIter, AvanceIter, AvanceIterator};
 pub use style::Style;
