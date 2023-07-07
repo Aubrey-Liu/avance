@@ -199,13 +199,13 @@ impl AvanceBar {
 
     /// Builder-like function for a progress bar with user custom style
     ///
-    /// An abstract pattern is like `{Filled} {In-progress} {Background}` (left to right):
-    /// - Background (the todo part)
-    /// - Filled (the finished part)
-    /// - In-progress Unit (the current progressing unit)
+    /// An abstract style is like `|{Filled}{Current}{Background}|`:
+    /// - Background: the waiting to do part
+    /// - Filled: the finished part
+    /// - Current: the current progressing unit
     ///
     /// Take "#0123456789 " as an example, the background is blank, the finished part
-    /// is filled with '#', and "0123456789" is used for the in-progress unit.
+    /// is filled with '#', and "0123456789" is used for the current unit.
     ///
     /// # Examples
     /// ```
