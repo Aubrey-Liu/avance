@@ -459,12 +459,19 @@ impl State {
         }
         let _ = self.draw(Some(0));
 
-        let mut target = std::io::stderr().lock();
-        if target.is_tty() {
-            let _ = writeln!(target);
-        }
-
+        // Close the current bar and move up other bars
         reposition(self.id);
+
+        // Move cursor to the end of the next line
+        let mut target = std::io::stderr().lock();
+        let ncols = terminal_size().0;
+
+        let _ = target.queue(Print('\n'));
+        if !is_finished() {
+            // only do this when some bars are still in progress
+            let _ = target.queue(MoveToColumn(ncols));
+        }
+        let _ = target.flush();
     }
 
     /// Try to find a progress bar's position. If none, means the bar has already been closed.
@@ -505,15 +512,15 @@ impl Display for State {
             .width
             .map_or(terminal_width, |w| min(w, terminal_width));
 
-        /// Time formatting function, which omits the leading 0s
-        fn ftime(seconds: usize) -> String {
+        // Time formatting function, which omits the leading 0s
+        let ftime = |seconds: usize| -> String {
             let m = seconds / 60 % 60;
             let s = seconds % 60;
             match seconds / 3600 {
                 0 => format!("{:02}:{:02}", m, s),
                 h => format!("{:02}:{:02}:{:02}", h, m, s),
             }
-        }
+        };
 
         let it = self.n;
         let its = it as f64 / elapsed;
@@ -571,12 +578,9 @@ impl Display for State {
 
 impl Clone for State {
     fn clone(&self) -> Self {
-        let new_state = Self::new(self.total);
-
-        Self {
-            config: self.config.clone(),
-            ..new_state
-        }
+        let mut new_state = Self::new(self.total);
+        new_state.config = self.config.clone();
+        new_state
     }
 }
 
@@ -635,6 +639,11 @@ pub fn set_max_progress_bars(nbars: u16) {
 /// Warps the global [`POSITIONS`]
 fn positions() -> &'static Mutex<HashMap<ID, Pos>> {
     POSITIONS.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+/// If all progress bars are closed
+fn is_finished() -> bool {
+    positions().lock().unwrap().is_empty()
 }
 
 /// Retrieve the environment width and height
