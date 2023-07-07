@@ -407,15 +407,15 @@ impl State {
         let msg = format!("{:1$}", msg, ncols as usize);
 
         if pos != 0 {
-            target.queue(Print("\n".repeat(pos as usize)))?;
-            target.queue(Print(msg))?;
-            target.queue(MoveUp(pos))?;
-            target.queue(MoveToColumn(ncols))?;
+            target
+                .queue(Print("\n".repeat(pos as usize)))?
+                .queue(Print(msg))?
+                .queue(MoveUp(pos))?
+                .queue(MoveToColumn(ncols))?
         } else {
-            target.queue(MoveToColumn(0))?;
-            target.queue(Print(msg))?;
+            target.queue(MoveToColumn(0))?.queue(Print(msg))?
         }
-        target.flush()
+        .flush()
     }
 
     /// Is a progress bar able to be displayed
@@ -438,13 +438,14 @@ impl State {
         }
 
         if pos != 0 {
-            target.queue(Print("\n".repeat(pos as usize)))?;
-            target.queue(Clear(ClearType::CurrentLine))?;
-            target.queue(MoveUp(pos))?;
+            target
+                .queue(Print("\n".repeat(pos as usize)))?
+                .queue(Clear(ClearType::CurrentLine))?
+                .queue(MoveUp(pos))?
         } else {
-            target.queue(Clear(ClearType::CurrentLine))?;
+            target.queue(Clear(ClearType::CurrentLine))?
         }
-        target.flush()
+        .flush()
     }
 
     pub fn close(&mut self) {
