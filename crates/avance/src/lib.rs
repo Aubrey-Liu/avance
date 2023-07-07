@@ -94,6 +94,9 @@ pub mod bar;
 pub mod iter;
 pub mod style;
 
+#[doc(inline)]
 pub use bar::{set_max_progress_bars, AvanceBar};
+#[doc(inline)]
 pub use iter::{AvanceBarIter, AvanceIter, AvanceIterator};
+#[doc(inline)]
 pub use style::Style;
