@@ -18,6 +18,7 @@
 //! * Windows
 //!
 //! # Progress Bar
+//!
 //! [`AvanceBar`] satisfies common usage of tracing progress. It can display necessary
 //! progress statistics, and can be used in the bounded or unbounded way.
 //!
@@ -40,6 +41,11 @@
 //!     .with_style(Style::Balloon)
 //!     .with_width(80)
 //!     .with_desc("avance");
+//!
+//! // Use a progress bar along with an iterator, eliminating the need for invoking inc or update.
+//! for _ in pb.with_iter(0..100) {
+//!     // ...
+//! }
 //! ```
 //!
 //! ## Behaviors:
@@ -68,8 +74,20 @@
 //! }
 //! ```
 //!
+//! # Style
+//!
+//! avance provides a range of pre-definded progress styles (at [`Style`]),
+//! and also allows users to **customize** the style according to their preferences.
+//!
+//! ```
+//! # use avance::AvanceIterator;
+//! for _ in (0..1000).avance().with_style_str("=>-") {
+//!     // ...
+//! }
+//! ```
+//!
 //! # TODOs:
-//! - [ ] Support user-defined progress bar style
+//! - [x] Support user-defined progress bar style
 //! - [ ] Implement Read & Write traits for [`AvanceIter`](iter::AvanceIter)
 
 pub mod bar;

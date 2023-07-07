@@ -38,7 +38,7 @@ where
 impl<Iter: Iterator> AvanceIter<Iter> {
     /// Set the style of a progress bar.
     ///
-    /// See [AvanceBar::set_style]
+    /// See [AvanceBar::with_style]
     ///
     /// # Examples
     ///
@@ -54,9 +54,26 @@ impl<Iter: Iterator> AvanceIter<Iter> {
         self
     }
 
+    /// Set the user-custom style of a progress bar.
+    ///
+    /// See [AvanceBar::with_style_str]
+    ///
+    /// # Examples
+    /// ```
+    /// use avance::AvanceIterator;
+    ///
+    /// for _ in (0..1000).avance().with_style_str("=>-") {
+    ///     // ...
+    /// }
+    /// ```
+    pub fn with_style_str(self, s: impl ToString) -> Self {
+        self.bar.set_style_str(s);
+        self
+    }
+
     /// Set the description of a progress bar.
     ///
-    /// See [AvanceBar::set_desc]
+    /// See [AvanceBar::with_desc]
     ///
     /// # Examples
     ///
@@ -74,7 +91,7 @@ impl<Iter: Iterator> AvanceIter<Iter> {
 
     /// Set a progress bar's width
     ///
-    /// See [AvanceBar::set_width]
+    /// See [AvanceBar::with_width]
     ///
     /// # Examples
     ///

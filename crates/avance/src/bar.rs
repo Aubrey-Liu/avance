@@ -129,6 +129,15 @@ impl AvanceBar {
         let _ = state.draw(None);
     }
 
+    /// Set the user-custom style of a progress bar.
+    ///
+    /// See [`with_style_str`](Self::with_style_str) for examples
+    pub fn set_style_str(&self, s: impl ToString) {
+        let mut state = self.state.lock().unwrap();
+        state.config.style = Style::Custom(s.to_string());
+        let _ = state.draw(None);
+    }
+
     /// Builder-like function for a progress bar with description
     ///
     /// # Examples
@@ -185,6 +194,30 @@ impl AvanceBar {
     /// ```
     pub fn with_style(self, style: Style) -> Self {
         self.set_style(style);
+        self
+    }
+
+    /// Builder-like function for a progress bar with user custom style
+    ///
+    /// An abstract pattern is like `{Filled} {In-progress} {Background}` (left to right):
+    /// - Background (the todo part)
+    /// - Filled (the finished part)
+    /// - In-progress Unit (the current progressing unit)
+    ///
+    /// Take "#0123456789 " as an example, the background is blank, the finished part
+    /// is filled with '#', and "0123456789" is used for the in-progress unit.
+    ///
+    /// # Examples
+    /// ```
+    /// use avance::AvanceBar;
+    ///
+    /// let pb = AvanceBar::new(1000).with_style_str("=>-");
+    /// for _ in pb.with_iter(0..1000) {
+    ///     // ...
+    /// }
+    /// ```
+    pub fn with_style_str(self, s: impl ToString) -> Self {
+        self.set_style_str(s);
         self
     }
 
@@ -508,23 +541,24 @@ impl Display for State {
                 let limit = (width as usize).saturating_sub(bra_.len() + _ket.len());
 
                 let style: Vec<_> = self.config.style.as_ref().chars().collect();
-                let background = style[0];
-                let pattern = &style[1..];
 
-                let m = pattern.len();
+                let filled = style[0];
+                let (background, in_progress) = style[1..].split_last().unwrap();
+
+                let m = in_progress.len();
                 let n = ((limit as f64 * pct) * m as f64) as usize;
-                let filled = n / m;
+                let n_filled = n / m;
 
-                let mut pb = pattern.last().unwrap().to_string().repeat(filled);
+                let mut pb = filled.to_string().repeat(n_filled);
 
-                if filled < limit {
-                    pb.push(pattern[n % m]);
+                if n_filled < limit {
+                    pb.push(in_progress[n % m]);
                 }
 
-                // Unicode width is not considered
-                let filled = filled + 1;
-                if filled < limit {
-                    let padding = background.to_string().repeat(limit - filled);
+                // Unicode width is not considered at the moment
+                if n_filled + 1 < limit {
+                    let n_padding = limit - n_filled - 1;
+                    let padding = background.to_string().repeat(n_padding);
 
                     pb.push_str(&padding);
                 }
