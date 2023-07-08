@@ -8,10 +8,16 @@ fn main() {
     let epoch = 200;
     let mut accuracy = 30.0;
 
-    for (_, pb) in (0..epoch).avance().with_style(Style::Block).with_pb() {
-        accuracy += 0.3;
-        pb.set_postfix(format!("acc={:.2}", accuracy));
+    (0..epoch)
+        .avance()
+        .with_style(Style::Block)
+        .with_pb()
+        .for_each(|(_, pb)| {
+            thread::sleep(Duration::from_millis(20));
 
-        thread::sleep(Duration::from_millis(20));
-    }
+            accuracy += 0.34;
+
+            // Display the accuracy through the postfix
+            pb.set_postfix(format!("acc={:.2}", accuracy));
+        });
 }

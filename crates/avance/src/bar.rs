@@ -540,13 +540,13 @@ impl Display for State {
                     _ => ftime((elapsed / pct * (1. - pct)) as usize),
                 };
 
-                let bra_ = format!("{}{:>3}%|", desc, (100.0 * pct) as usize);
-                let _ket = format!(
+                let l_bar = format!("{}{:>3}%|", desc, (100.0 * pct) as usize);
+                let r_bar = format!(
                     "| {}/{} [{}<{}, {:.02}it/s{}]",
                     it, total, time, eta, its, postfix
                 );
 
-                let limit = (width as usize).saturating_sub(bra_.len() + _ket.len());
+                let limit = (width as usize).saturating_sub(l_bar.len() + r_bar.len());
 
                 let style: Vec<_> = self.config.style.as_ref().chars().collect();
 
@@ -557,10 +557,10 @@ impl Display for State {
                 let n = ((limit as f64 * pct) * m as f64) as usize;
                 let n_filled = n / m;
 
-                let mut pb = filled.to_string().repeat(n_filled);
+                let mut bar = filled.to_string().repeat(n_filled);
 
                 if n_filled < limit {
-                    pb.push(in_progress[n % m]);
+                    bar.push(in_progress[n % m]);
                 }
 
                 // Unicode width is not considered at the moment
@@ -568,10 +568,10 @@ impl Display for State {
                     let n_padding = limit - n_filled - 1;
                     let padding = background.to_string().repeat(n_padding);
 
-                    pb.push_str(&padding);
+                    bar.push_str(&padding);
                 }
 
-                fmt.write_fmt(format_args!("{}{}{}", bra_, pb, _ket))
+                fmt.write_fmt(format_args!("{}{}{}", l_bar, bar, r_bar))
             }
         }
     }
