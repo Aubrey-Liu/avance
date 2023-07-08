@@ -77,7 +77,7 @@
 //! # Style
 //!
 //! avance provides a range of pre-definded progress styles (at [`Style`]),
-//! and also allows users to **customize** the style according to their preferences.
+//! and also allows users to easily **customize** the style according to their preferences.
 //!
 //! ```
 //! # use avance::AvanceIterator;
