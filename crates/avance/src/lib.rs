@@ -87,8 +87,8 @@
 //! ```
 //!
 //! # TODOs:
-//! - [x] Support user-defined progress bar style
-//! - [ ] Implement Read & Write traits for [`AvanceIter`](iter::AvanceIter)
+//! - [ ] A progress bar for io pipes
+//! - [ ] A Monitor for very slow progress bars
 
 pub mod bar;
 pub mod iter;
