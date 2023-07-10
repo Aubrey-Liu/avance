@@ -31,13 +31,6 @@ pub struct AvanceBar {
 // Public Interface
 impl AvanceBar {
     /// Create a new progress bar
-    ///
-    /// # Examples
-    /// ```
-    /// use avance::AvanceBar;
-    ///
-    /// let pb = AvanceBar::new(1000);
-    /// ```
     pub fn new(total: u64) -> Self {
         let pb = AvanceBar {
             state: Arc::new(Mutex::new(State::new(Some(total)))),
@@ -52,16 +45,145 @@ impl AvanceBar {
     ///
     /// # Examples
     /// ```
-    /// use avance::AvanceBar;
-    ///
+    /// # use avance::AvanceBar;
     /// let pb = AvanceBar::new(100);
-    ///
     /// for _ in pb.with_iter(0..100) {
     ///     // ...
     /// }
     /// ```
     pub fn with_iter<Iter: Iterator>(self, iter: Iter) -> AvanceIter<Iter> {
         AvanceIter { iter, bar: self }
+    }
+
+    /// Builder-like function for a progress bar with style
+    ///
+    /// See available styles in [`Style`]
+    ///
+    /// # Examples
+    /// ```
+    /// # use avance::{AvanceBar, Style};
+    /// let pb = AvanceBar::new(1000).with_style(Style::Block);
+    /// ```
+    pub fn with_style(self, style: Style) -> Self {
+        self.set_style(style);
+        self
+    }
+
+    /// Builder-like function for a progress bar with user custom style
+    ///
+    /// An abstract style is like `|{Filled}{Current}{Background}|`:
+    /// - Background: the waiting to do part
+    /// - Filled: the finished part
+    /// - Current: the current progressing unit
+    ///
+    /// Take "#0123456789 " as an example, the background is blank, the finished part
+    /// is filled with '#', and "0123456789" is used for the current unit.
+    ///
+    /// # Examples
+    /// ```
+    /// # use avance::AvanceBar;
+    /// let pb = AvanceBar::new(1000).with_style_str("=>-");
+    /// ```
+    pub fn with_style_str(self, s: impl ToString) -> Self {
+        self.set_style_str(s);
+        self
+    }
+
+    /// Builder-like function for a progress bar with width
+    ///
+    /// If width is larger than terminal width, progress bar will adjust
+    /// to the terminal width.
+    ///
+    /// # Examples
+    /// ```
+    /// # use avance::AvanceBar;
+    /// let pb = AvanceBar::new(1000).with_width(80);
+    /// ```
+    pub fn with_width(self, width: u16) -> Self {
+        self.set_width(width);
+        self
+    }
+
+    /// Builder-like function for a progress bar with description
+    ///
+    /// # Examples
+    /// ```
+    /// # use avance::AvanceBar;
+    /// let pb = AvanceBar::new(1000).with_desc("my task");
+    /// ```
+    pub fn with_desc(self, desc: impl ToString) -> Self {
+        self.set_desc(desc);
+        self
+    }
+
+    /// Build a new progress bar with configs of another progress bar.
+    /// Only the configs and length of the old progress bar will be retained.
+    ///
+    /// # Examples
+    /// ```     
+    /// # use avance::{AvanceBar, Style};  
+    /// let pb1 = AvanceBar::new(100)
+    ///     .with_style(Style::Balloon)
+    ///     .with_width(90)
+    ///     .with_desc("task1");
+    /// // Reuse the style and width of pb1, but
+    /// // change the description and length.
+    /// let pb2 = AvanceBar::with_config_of(&pb1)
+    ///     .with_total(200)
+    ///     .with_desc("task2");
+    /// ```
+    pub fn with_config_of(pb: &AvanceBar) -> Self {
+        let new_state = pb.state.lock().unwrap().clone();
+        let new_pb = AvanceBar {
+            state: Arc::new(Mutex::new(new_state)),
+        };
+        new_pb.refresh();
+        new_pb
+    }
+
+    /// Builder-like function for a progress bar with minimun update interval (seconds).
+    ///  The default interval is 1/15.
+    ///
+    /// # Examples
+    /// ```
+    /// # use avance::AvanceBar;
+    /// let pb = AvanceBar::new(1000).with_interval(1.0 / 5.0);
+    /// ```
+    pub fn with_interval(self, interval: f64) -> Self {
+        self.set_interval(interval);
+        self
+    }
+
+    /// Builder-like function for a progress bar with length
+    ///
+    /// Useful when you reuse some configs of another progress bar,
+    /// but want to change the length.
+    ///
+    /// # Examples
+    /// ```
+    /// # use avance::{AvanceBar, Style};
+    /// let pb1 = AvanceBar::new(100)
+    ///    .with_style(Style::Balloon)
+    ///    .with_width(90);
+    /// // Reuse pb1's config, but override the length.
+    /// let pb2 = AvanceBar::with_config_of(&pb1).with_total(200);
+    /// ```
+    pub fn with_total(self, total: u64) -> Self {
+        self.set_total(total);
+        self
+    }
+
+    /// Override the postfix of a progress bar.
+    ///
+    /// Postfix is usually used for **dynamically** displaying some
+    /// additional information, such as the accuracy when training a model.
+    ///
+    /// See [`AvanceIter::with_pb`] if you want to change the postfix when
+    /// progressing with an iterator.
+    pub fn set_postfix(&self, postfix: impl ToString) {
+        let mut state = self.state.lock().unwrap();
+        state.config.postfix = Some(postfix.to_string());
+        let _ = state.draw(None);
     }
 
     /// Advance the progress bar by n steps.
@@ -88,207 +210,6 @@ impl AvanceBar {
         self.update(1);
     }
 
-    /// Set the description (prefix) of a progress bar.
-    ///
-    /// See [`with_desc`](Self::with_desc) for examples
-    pub fn set_desc(&self, desc: impl ToString) {
-        let mut state = self.state.lock().unwrap();
-        state.config.desc = Some(desc.to_string());
-        let _ = state.draw(None);
-    }
-
-    /// Set the postfix of a progress bar.
-    ///
-    /// Postfix is usually used for dynamically displaying some
-    /// additional information, such as the accuracy when training a model.
-    ///
-    /// See [`AvanceIter::with_pb`] if you want to change the postfix when
-    /// progressing with an iterator.
-    pub fn set_postfix(&self, postfix: impl ToString) {
-        let mut state = self.state.lock().unwrap();
-        state.config.postfix = Some(postfix.to_string());
-        let _ = state.draw(None);
-    }
-
-    /// Set a progress bar's width
-    ///
-    /// See [`with_width`](Self::with_width) for examples
-    pub fn set_width(&self, width: u16) {
-        let mut state = self.state.lock().unwrap();
-        state.config.width = Some(width);
-        let _ = state.clear();
-        let _ = state.draw(None);
-    }
-
-    /// Set the style of a progress bar.
-    ///
-    /// See [`with_style`](Self::with_style) for examples
-    pub fn set_style(&self, style: Style) {
-        let mut state = self.state.lock().unwrap();
-        state.config.style = style;
-        let _ = state.draw(None);
-    }
-
-    /// Set the user-custom style of a progress bar.
-    ///
-    /// See [`with_style_str`](Self::with_style_str) for examples
-    pub fn set_style_str(&self, s: impl ToString) {
-        let mut state = self.state.lock().unwrap();
-        state.config.style = Style::Custom(s.to_string());
-        let _ = state.draw(None);
-    }
-
-    /// Builder-like function for a progress bar with description
-    ///
-    /// # Examples
-    /// ```
-    /// use avance::AvanceBar;
-    ///
-    /// let pb = AvanceBar::new(1000).with_desc("my task");
-    ///
-    /// for _ in 0..1000 {
-    ///    // ...
-    ///    pb.inc();
-    /// }
-    /// ```
-    pub fn with_desc(self, desc: impl ToString) -> Self {
-        self.set_desc(desc);
-        self
-    }
-
-    /// Builder-like function for a progress bar with width
-    ///
-    /// If width is larger than terminal width, progress bar will adjust
-    /// to the terminal width.
-    ///
-    /// # Examples
-    /// ```
-    /// use avance::AvanceBar;
-    ///
-    /// let pb = AvanceBar::new(1000).with_width(80);
-    ///
-    /// for _ in 0..1000 {
-    ///    // ...
-    ///    pb.inc();
-    /// }
-    /// ```
-    pub fn with_width(self, width: u16) -> Self {
-        self.set_width(width);
-        self
-    }
-
-    /// Builder-like function for a progress bar with style
-    ///
-    /// See available styles in [`Style`]
-    ///
-    /// # Examples
-    /// ```
-    /// use avance::{AvanceBar, Style};
-    ///
-    /// let pb = AvanceBar::new(1000).with_style(Style::Block);
-    ///
-    /// for _ in 0..1000 {
-    ///    // ...
-    ///    pb.inc();
-    /// }
-    /// ```
-    pub fn with_style(self, style: Style) -> Self {
-        self.set_style(style);
-        self
-    }
-
-    /// Builder-like function for a progress bar with user custom style
-    ///
-    /// An abstract style is like `|{Filled}{Current}{Background}|`:
-    /// - Background: the waiting to do part
-    /// - Filled: the finished part
-    /// - Current: the current progressing unit
-    ///
-    /// Take "#0123456789 " as an example, the background is blank, the finished part
-    /// is filled with '#', and "0123456789" is used for the current unit.
-    ///
-    /// # Examples
-    /// ```
-    /// use avance::AvanceBar;
-    ///
-    /// let pb = AvanceBar::new(1000).with_style_str("=>-");
-    /// for _ in pb.with_iter(0..1000) {
-    ///     // ...
-    /// }
-    /// ```
-    pub fn with_style_str(self, s: impl ToString) -> Self {
-        self.set_style_str(s);
-        self
-    }
-
-    /// Build a new progress bar with configs of another progress bar.
-    /// Only the configs and length of the old progress bar will be retained.
-    ///
-    /// # Examples
-    /// ```     
-    /// use avance::{AvanceBar, Style};  
-    ///
-    /// let pb1 = AvanceBar::new(100)
-    ///     .with_style(Style::Balloon)
-    ///     .with_width(90)
-    ///     .with_desc("task1");
-    ///  
-    /// for _ in 0..100 {
-    ///     // ...
-    ///     pb1.inc();
-    /// }
-    ///
-    /// // Reuse the style and width of pb1, but
-    /// // change the description and length.
-    /// let pb2 = AvanceBar::with_config_of(&pb1)
-    ///     .with_total(200)
-    ///     .with_desc("task2");
-    ///
-    /// for _ in 0..200 {
-    ///     // ...
-    ///     pb2.inc();
-    /// }
-    /// ```
-    pub fn with_config_of(pb: &AvanceBar) -> Self {
-        let new_state = pb.state.lock().unwrap().clone();
-        let new_pb = AvanceBar {
-            state: Arc::new(Mutex::new(new_state)),
-        };
-        new_pb.refresh();
-        new_pb
-    }
-
-    /// Set the length of a progress bar.
-    ///
-    /// See [`with_total`](Self::with_total) for examples
-    pub fn set_total(&self, total: u64) {
-        let mut state = self.state.lock().unwrap();
-        state.total = Some(total);
-        let _ = state.draw(None);
-    }
-
-    /// Builder-like function for a progress bar with length
-    ///
-    /// Useful when you reuse some configs of another progress bar,
-    /// but want to change the length.
-    ///
-    /// # Examples
-    /// ```
-    /// use avance::{AvanceBar, Style};
-    ///
-    /// let pb1 = AvanceBar::new(100)
-    ///    .with_style(Style::Balloon)
-    ///    .with_width(90);
-    /// // finish some tasks with pb1 ...
-    ///
-    /// // Reuse the config of pb1, but change the length.
-    /// let pb2 = AvanceBar::with_config_of(&pb1).with_total(200);
-    /// ```
-    pub fn with_total(self, total: u64) -> Self {
-        self.set_total(total);
-        self
-    }
-
     /// Manually stop the progress bar. Usually users don't have to call this
     /// method directly, as a progress bar will close automatically when dropped.
     ///
@@ -298,6 +219,55 @@ impl AvanceBar {
     pub fn close(&self) {
         let mut state = self.state.lock().unwrap();
         state.close();
+    }
+
+    /// Set the style of a progress bar.
+    pub fn set_style(&self, style: Style) {
+        let mut state = self.state.lock().unwrap();
+        state.config.style = style;
+        let _ = state.draw(None);
+    }
+
+    /// Set the user-custom style of a progress bar.
+    pub fn set_style_str(&self, s: impl ToString) {
+        let mut state = self.state.lock().unwrap();
+        state.config.style = Style::Custom(s.to_string());
+        let _ = state.draw(None);
+    }
+
+    /// Set a progress bar's width
+    pub fn set_width(&self, width: u16) {
+        let mut state = self.state.lock().unwrap();
+        state.config.width = Some(width);
+        let _ = state.clear();
+        let _ = state.draw(None);
+    }
+
+    /// Set the description (prefix) of a progress bar.
+    pub fn set_desc(&self, desc: impl ToString) {
+        let mut state = self.state.lock().unwrap();
+        state.config.desc = Some(desc.to_string());
+        let _ = state.draw(None);
+    }
+
+    /// Set the minimun update interval (seconds) of a progress bar.
+    ///
+    /// Only positive intervals are allowed. Uses the default interval (1/15s)
+    /// when the argument is invalid.
+    pub fn set_interval(&self, interval: f64) {
+        let mut state = self.state.lock().unwrap();
+        state.config.interval = if interval.is_sign_positive() {
+            interval
+        } else {
+            1.0 / 15.0
+        };
+    }
+
+    /// Set the length of a progress bar.
+    pub fn set_total(&self, total: u64) {
+        let mut state = self.state.lock().unwrap();
+        state.total = Some(total);
+        let _ = state.draw(None);
     }
 }
 
@@ -323,7 +293,6 @@ struct State {
     config: Config,
     begin: Instant,
     last: Instant,
-    interval: f64,
     id: ID,
     n: u64,
     cached: u64,
@@ -337,7 +306,6 @@ impl State {
             config: Config::new(),
             begin: Instant::now(),
             last: Instant::now(),
-            interval: 1.0 / 15.0,
             id: next_free_pos(),
             n: 0,
             cached: 0,
@@ -360,7 +328,7 @@ impl State {
             }
         }
 
-        if self.last.elapsed().as_secs_f64() >= self.interval {
+        if self.last.elapsed().as_secs_f64() >= self.config.interval {
             self.n += self.cached;
             self.cached = 0;
             self.last = Instant::now();
@@ -451,6 +419,11 @@ impl State {
     pub fn close(&mut self) {
         if !self.drawable() {
             // already closed
+            return;
+        }
+
+        if !self.config.leave {
+            reposition(self.id);
             return;
         }
 
@@ -599,6 +572,8 @@ struct Config {
     width: Option<u16>,
     desc: Option<String>,
     postfix: Option<String>,
+    interval: f64,
+    leave: bool,
 }
 
 impl Config {
@@ -609,6 +584,8 @@ impl Config {
             desc: None,
             width: None,
             postfix: None,
+            interval: 1.0 / 15.0,
+            leave: true,
         }
     }
 }
@@ -622,10 +599,10 @@ type Pos = u16;
 
 /// Next unused ID
 static NEXTID: AtomicU64 = AtomicU64::new(0);
-/// How many rows are this lib allowed to use. If unspecified,
+/// How many rows are progress bars allowed to use. If unspecified,
 /// use the terminal height.
 static NROWS: AtomicU16 = AtomicU16::new(0);
-/// Book-keeping all progress bars' positions.
+/// Book-keeping the positions of all bars.
 static POSITIONS: OnceLock<Mutex<HashMap<ID, Pos>>> = OnceLock::new();
 
 /// Set how many on-going progress bar can be shown on the screen.

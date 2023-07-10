@@ -21,8 +21,7 @@ where
     /// # Examples
     ///
     /// ```
-    /// use avance::AvanceIterator;
-    ///
+    /// # use avance::AvanceIterator;
     /// for _ in (0..1000).avance() {
     ///     // ...
     /// }
@@ -43,8 +42,7 @@ impl<Iter: Iterator> AvanceIter<Iter> {
     /// # Examples
     ///
     /// ```
-    /// use avance::{AvanceIterator, Style};
-    ///
+    /// # use avance::{AvanceIterator, Style};
     /// for _ in (0..1000).avance().with_style(Style::Balloon) {
     ///     // ...
     /// }
@@ -60,8 +58,7 @@ impl<Iter: Iterator> AvanceIter<Iter> {
     ///
     /// # Examples
     /// ```
-    /// use avance::AvanceIterator;
-    ///
+    /// # use avance::AvanceIterator;
     /// for _ in (0..1000).avance().with_style_str("=>-") {
     ///     // ...
     /// }
@@ -78,8 +75,7 @@ impl<Iter: Iterator> AvanceIter<Iter> {
     /// # Examples
     ///
     /// ```
-    /// use avance::AvanceIterator;
-    ///
+    /// # use avance::AvanceIterator;
     /// for _ in (0..1000).avance().with_desc("task name") {
     ///     // ...
     /// }
@@ -96,8 +92,7 @@ impl<Iter: Iterator> AvanceIter<Iter> {
     /// # Examples
     ///
     /// ```
-    /// use avance::AvanceIterator;
-    ///
+    /// # use avance::AvanceIterator;
     /// for _ in (0..1000).avance().with_width(80) {
     ///     // ...
     /// }
@@ -114,9 +109,8 @@ impl<Iter: Iterator> AvanceIter<Iter> {
     ///
     /// # Examples
     /// ```
-    /// use avance::AvanceIterator;
-    ///
-    /// // Configurate the bar before calling with_pb
+    /// # use avance::AvanceIterator;
+    /// // Configurate before calling with_pb
     /// for (_, pb) in (0..1000).avance().with_width(80).with_pb() {
     ///     // ...
     ///     pb.set_postfix("");
