@@ -55,7 +55,8 @@ impl AvanceBar {
         AvanceIter { iter, bar: self }
     }
 
-    /// Builder-like function for a progress bar with style
+    /// Builder-like function for a progress bar with a given style
+    /// (default: [`Style::ASCII`]).
     ///
     /// See available styles in [`Style`]
     ///
@@ -141,8 +142,8 @@ impl AvanceBar {
         new_pb
     }
 
-    /// Builder-like function for a progress bar with minimun update interval (seconds).
-    ///  The default interval is 1/15.
+    /// Builder-like function for a progress bar with minimun
+    /// update interval (default: 1/15) seconds.
     ///
     /// # Examples
     /// ```
@@ -210,18 +211,18 @@ impl AvanceBar {
         self.update(1);
     }
 
-    /// Manually stop the progress bar. Usually users don't have to call this
-    /// method directly, as a progress bar will close automatically when dropped.
+    /// Manually stop the progress bar, and leave the current progress on terminal.
+    /// Usually users don't have to call this method directly, as a progress bar will
+    /// be closed automatically when dropped.
     ///
     /// Users should close a bar manually when they want to preserve the rendering order
     /// of progress bars, otherwise, progress bars will be closed in the order of being
     /// dropped (Closing order is the same as the rendering order).
     pub fn close(&self) {
-        let mut state = self.state.lock().unwrap();
-        state.close();
+        let _ = self.state.lock().unwrap().close();
     }
 
-    /// Set the style of a progress bar.
+    /// Set the style (default: [`Style::ASCII`]) of a progress bar.
     pub fn set_style(&self, style: Style) {
         let mut state = self.state.lock().unwrap();
         state.config.style = style;
@@ -250,7 +251,7 @@ impl AvanceBar {
         let _ = state.draw(None);
     }
 
-    /// Set the minimun update interval (seconds) of a progress bar.
+    /// Set the minimun update interval (default: 1/15) seconds.
     ///
     /// Only positive intervals are allowed. Uses the default interval (1/15s)
     /// when the argument is invalid.
@@ -392,7 +393,8 @@ impl State {
         stderr().is_tty() && self.try_get_pos().is_some()
     }
 
-    /// Sweep a progress bar from the terminal
+    /// Sweep a progress bar from the terminal.
+    /// Useful when a progress bar's width was changed.
     fn clear(&self) -> Result<()> {
         if !self.drawable() {
             return Ok(());
@@ -416,15 +418,10 @@ impl State {
         .flush()
     }
 
-    pub fn close(&mut self) {
+    fn close(&mut self) -> Result<()> {
         if !self.drawable() {
             // already closed
-            return;
-        }
-
-        if !self.config.leave {
-            reposition(self.id);
-            return;
+            return Ok(());
         }
 
         // Don't update when there's nothing new
@@ -437,15 +434,15 @@ impl State {
         reposition(self.id);
 
         // Move cursor to the end of the next line
-        let mut target = std::io::stderr().lock();
+        let mut target = stderr().lock();
         let ncols = terminal_size().0;
 
-        let _ = target.queue(Print('\n'));
+        target.queue(Print('\n'))?;
         if !is_finished() {
             // only do this when some bars are still in progress
-            let _ = target.queue(MoveToColumn(ncols));
+            target.queue(MoveToColumn(ncols))?;
         }
-        let _ = target.flush();
+        target.flush()
     }
 
     /// Try to find a progress bar's position. If none, means the bar has already been closed.
@@ -561,7 +558,7 @@ impl Clone for State {
 impl Drop for State {
     /// Automatically close a progress bar when it's dropped.
     fn drop(&mut self) {
-        self.close();
+        drop(self.close());
     }
 }
 
@@ -573,7 +570,6 @@ struct Config {
     desc: Option<String>,
     postfix: Option<String>,
     interval: f64,
-    leave: bool,
 }
 
 impl Config {
@@ -585,7 +581,6 @@ impl Config {
             width: None,
             postfix: None,
             interval: 1.0 / 15.0,
-            leave: true,
         }
     }
 }
