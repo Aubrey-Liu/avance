@@ -72,13 +72,12 @@ impl AvanceBar {
 
     /// Builder-like function for a progress bar with user custom style
     ///
-    /// An abstract style is like `|{Filled}{Current}{Background}|`:
-    /// - Background: the waiting to do part
-    /// - Filled: the finished part
-    /// - Current: the current progressing unit
+    /// A custom style string is like `|{Finished}{Current}{ToDo}|`:
+    /// - Finished & ToDo: One character
+    /// - Current: One to many characters
     ///
-    /// Take "#0123456789 " as an example, the background is blank, the finished part
-    /// is filled with '#', and "0123456789" is used for the current unit.
+    /// Take `"#0123456789 "` as an example, the presentation of the bar will be like:
+    /// `|######3      |`
     ///
     /// # Examples
     /// ```
