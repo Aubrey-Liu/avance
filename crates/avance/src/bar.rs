@@ -84,7 +84,7 @@ impl AvanceBar {
     /// # use avance::AvanceBar;
     /// let pb = AvanceBar::new(1000).with_style_str("=>-");
     /// ```
-    pub fn with_style_str(self, s: impl ToString) -> Self {
+    pub fn with_style_str(self, s: &'static str) -> Self {
         self.set_style_str(s);
         self
     }
@@ -229,9 +229,9 @@ impl AvanceBar {
     }
 
     /// Set the user-custom style of a progress bar.
-    pub fn set_style_str(&self, s: impl ToString) {
+    pub fn set_style_str(&self, s: &'static str) {
         let mut state = self.state.lock().unwrap();
-        state.config.style = Style::Custom(s.to_string());
+        state.config.style = Style::Custom(s);
         let _ = state.draw(None);
     }
 
@@ -287,7 +287,6 @@ impl AvanceBar {
     }
 }
 
-/// The inner state of a progress bar
 #[derive(Debug)]
 struct State {
     config: Config,
@@ -300,7 +299,6 @@ struct State {
 }
 
 impl State {
-    /// Create a new state of a progress bar
     fn new(total: Option<u64>) -> Self {
         Self {
             config: Config::new(),
@@ -313,7 +311,6 @@ impl State {
         }
     }
 
-    /// Advance n steps for a progress bar
     fn update(&mut self, n: u64) {
         self.cached += n;
 
@@ -336,7 +333,6 @@ impl State {
         }
     }
 
-    /// Make progress without caring the interval
     fn force_update(&mut self) {
         self.n = if let Some(total) = self.total {
             min(total, self.n + self.cached)
@@ -347,7 +343,6 @@ impl State {
         self.last = Instant::now();
     }
 
-    /// Draw progress bar onto terminal
     fn draw(&self, pos: Option<u16>) -> Result<()> {
         if !self.drawable() {
             return Ok(());
@@ -386,7 +381,6 @@ impl State {
         .flush()
     }
 
-    /// Is a progress bar able to be displayed
     fn drawable(&self) -> bool {
         // is_terminal is stable on 1.70.0
         stderr().is_tty() && self.try_get_pos().is_some()
@@ -444,23 +438,17 @@ impl State {
         target.flush()
     }
 
-    /// Try to find a progress bar's position. If none, means the bar has already been closed.
     fn try_get_pos(&self) -> Option<Pos> {
         let positions = positions().lock().unwrap();
         positions.get(&self.id).copied()
     }
 
-    /// Get a progress bar's position, assuming the bar isn't closed.
-    ///
-    /// # Panics
-    /// Panics if the progress bar was closed.
     fn get_pos(&self) -> Pos {
         self.try_get_pos().unwrap()
     }
 }
 
 impl Display for State {
-    /// Convert a progerss bar into human readable format.
     fn fmt(&self, fmt: &mut Formatter<'_>) -> std::fmt::Result {
         let elapsed = self.last.duration_since(self.begin).as_secs_f64();
 
@@ -555,13 +543,11 @@ impl Clone for State {
 }
 
 impl Drop for State {
-    /// Automatically close a progress bar when it's dropped.
     fn drop(&mut self) {
         drop(self.close());
     }
 }
 
-/// Config decides how a progress bar is displayed
 #[derive(Debug, Clone)]
 struct Config {
     style: Style,
@@ -572,7 +558,6 @@ struct Config {
 }
 
 impl Config {
-    /// Create a new progress bar config.
     fn new() -> Self {
         Self {
             style: Style::default(),
@@ -584,11 +569,8 @@ impl Config {
     }
 }
 
-/// Wrapping state in arc and mutex
 type AtomicState = Arc<Mutex<State>>;
-/// Identifier of a progress bar
 type ID = u64;
-/// Position of a progress bar
 type Pos = u16;
 
 /// Next unused ID
@@ -608,23 +590,18 @@ pub fn set_max_progress_bars(nbars: u16) {
     NROWS.swap(nrows, Ordering::Relaxed);
 }
 
-/// Warps the global [`POSITIONS`]
 fn positions() -> &'static Mutex<HashMap<ID, Pos>> {
     POSITIONS.get_or_init(|| Mutex::new(HashMap::new()))
 }
 
-/// If all progress bars are closed
 fn is_finished() -> bool {
     positions().lock().unwrap().is_empty()
 }
 
-/// Retrieve the environment width and height
 fn terminal_size() -> (u16, u16) {
     crossterm::terminal::size().unwrap_or((80, 64))
 }
 
-/// How many rows can progress bars take up. If unspecified,
-/// uses the terminal height.
 fn nrows() -> u16 {
     let nrows = NROWS.load(Ordering::Relaxed);
 
@@ -635,7 +612,6 @@ fn nrows() -> u16 {
     }
 }
 
-/// Find the next free position
 fn next_free_pos() -> ID {
     let mut positions = positions().lock().unwrap();
     let next_id = NEXTID.fetch_add(1, Ordering::Relaxed);
@@ -645,7 +621,6 @@ fn next_free_pos() -> ID {
     next_id
 }
 
-/// When a bar is closed, rearrange the position of other progress bars.
 fn reposition(id: ID) {
     let mut positions = positions().lock().unwrap();
 

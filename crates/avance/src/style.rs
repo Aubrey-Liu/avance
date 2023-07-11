@@ -14,7 +14,7 @@ pub enum Style {
     Balloon,
 
     /// User custom style
-    Custom(String),
+    Custom(&'static str),
 }
 
 impl AsRef<str> for Style {
@@ -23,7 +23,7 @@ impl AsRef<str> for Style {
             Self::ASCII => "#0123456789 ",
             Self::Block => "█ ▏▎▍▌▋▊▉ ",
             Self::Balloon => "*.oO@ ",
-            Self::Custom(s) => s.as_str(),
+            Self::Custom(s) => s,
         }
     }
 }

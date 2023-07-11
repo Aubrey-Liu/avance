@@ -63,7 +63,7 @@ impl<Iter: Iterator> AvanceIter<Iter> {
     ///     // ...
     /// }
     /// ```
-    pub fn with_style_str(self, s: impl ToString) -> Self {
+    pub fn with_style_str(self, s: &'static str) -> Self {
         self.bar.set_style_str(s);
         self
     }
