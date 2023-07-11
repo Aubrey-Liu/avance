@@ -5,6 +5,7 @@ use crossterm::style::Print;
 use crossterm::terminal::{self, Clear, ClearType};
 use crossterm::tty::IsTty;
 use crossterm::QueueableCommand;
+use std::borrow::Cow;
 use std::cmp::{max, min};
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
@@ -114,7 +115,7 @@ impl AvanceBar {
     /// # use avance::AvanceBar;
     /// let pb = AvanceBar::new(1000).with_desc("my task");
     /// ```
-    pub fn with_desc(self, desc: impl ToString) -> Self {
+    pub fn with_desc(self, desc: impl Into<Cow<'static, str>>) -> Self {
         self.set_desc(desc);
         self
     }
@@ -174,9 +175,9 @@ impl AvanceBar {
     ///
     /// See [`AvanceIter::with_pb`] if you want to change the postfix when
     /// progressing with an iterator.
-    pub fn set_postfix(&self, postfix: impl ToString) {
+    pub fn set_postfix(&self, postfix: impl Into<Cow<'static, str>>) {
         let mut state = self.state.lock().unwrap();
-        state.config.postfix = Some(postfix.to_string());
+        state.config.postfix = Some(postfix.into());
         let _ = state.draw_to_stderr(None);
     }
 
@@ -226,9 +227,9 @@ impl AvanceBar {
     }
 
     /// Set the user-custom style of a progress bar.
-    pub fn set_style_str(&self, s: &'static str) {
+    pub fn set_style_str(&self, s: impl Into<Cow<'static, str>>) {
         let mut state = self.state.lock().unwrap();
-        state.config.style = Style::Custom(s);
+        state.config.style = Style::Custom(s.into());
         let _ = state.draw_to_stderr(None);
     }
 
@@ -241,9 +242,9 @@ impl AvanceBar {
     }
 
     /// Set the description (prefix) of a progress bar.
-    pub fn set_desc(&self, desc: impl ToString) {
+    pub fn set_desc(&self, desc: impl Into<Cow<'static, str>>) {
         let mut state = self.state.lock().unwrap();
-        state.config.desc = Some(desc.to_string());
+        state.config.desc = Some(desc.into());
         let _ = state.draw_to_stderr(None);
     }
 
@@ -526,8 +527,8 @@ impl AtomicProgress {
 struct Config {
     style: Style,
     width: Option<u16>,
-    desc: Option<String>,
-    postfix: Option<String>,
+    desc: Option<Cow<'static, str>>,
+    postfix: Option<Cow<'static, str>>,
 }
 
 impl Config {

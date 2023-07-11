@@ -1,5 +1,7 @@
 //! Styles of a progress bar
 
+use std::borrow::Cow;
+
 /// Styles of a progress bar
 #[derive(Debug, Clone, Default)]
 pub enum Style {
@@ -14,7 +16,7 @@ pub enum Style {
     Balloon,
 
     /// User custom style
-    Custom(&'static str),
+    Custom(Cow<'static, str>),
 }
 
 impl AsRef<str> for Style {

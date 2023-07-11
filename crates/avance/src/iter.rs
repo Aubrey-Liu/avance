@@ -1,6 +1,8 @@
 //! A wrapped iterator that shows progress
 
-use crate::{bar::AvanceBar, Style};
+use std::borrow::Cow;
+
+use super::*;
 
 /// An iterator wrapper that shows a progress bar
 pub struct AvanceIter<Iter> {
@@ -80,7 +82,7 @@ impl<Iter: Iterator> AvanceIter<Iter> {
     ///     // ...
     /// }
     /// ```
-    pub fn with_desc(self, desc: impl ToString) -> Self {
+    pub fn with_desc(self, desc: impl Into<Cow<'static, str>>) -> Self {
         self.bar.set_desc(desc);
         self
     }
