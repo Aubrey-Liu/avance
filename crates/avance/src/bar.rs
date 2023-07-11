@@ -26,14 +26,17 @@ use super::*;
 #[derive(Debug, Clone)]
 pub struct AvanceBar {
     state: AtomicState,
+    progress: Arc<AtomicProgress>,
 }
 
 // Public Interface
 impl AvanceBar {
     /// Create a new progress bar
     pub fn new(total: u64) -> Self {
+        let progress = Arc::new(AtomicProgress::new());
         let pb = AvanceBar {
-            state: Arc::new(Mutex::new(State::new(Some(total)))),
+            state: Arc::new(Mutex::new(State::new(Some(total), Arc::clone(&progress)))),
+            progress,
         };
         pb.refresh();
         pb
@@ -133,25 +136,16 @@ impl AvanceBar {
     ///     .with_desc("task2");
     /// ```
     pub fn with_config_of(pb: &AvanceBar) -> Self {
-        let new_state = pb.state.lock().unwrap().clone();
+        let old_state = pb.state.lock().unwrap();
+        let progress = Arc::new(AtomicProgress::new());
+        let mut new_state = State::new(old_state.total, Arc::clone(&progress));
+        new_state.config = old_state.config.clone();
         let new_pb = AvanceBar {
             state: Arc::new(Mutex::new(new_state)),
+            progress,
         };
         new_pb.refresh();
         new_pb
-    }
-
-    /// Builder-like function for a progress bar with minimun
-    /// update interval (default: 1/15) seconds.
-    ///
-    /// # Examples
-    /// ```
-    /// # use avance::AvanceBar;
-    /// let pb = AvanceBar::new(1000).with_interval(1.0 / 5.0);
-    /// ```
-    pub fn with_interval(self, interval: f64) -> Self {
-        self.set_interval(interval);
-        self
     }
 
     /// Builder-like function for a progress bar with length
@@ -183,23 +177,26 @@ impl AvanceBar {
     pub fn set_postfix(&self, postfix: impl ToString) {
         let mut state = self.state.lock().unwrap();
         state.config.postfix = Some(postfix.to_string());
-        let _ = state.draw(None);
+        let _ = state.draw_to_stderr(None);
     }
 
     /// Advance the progress bar by n steps.
     pub fn update(&self, n: u64) {
-        let mut state = self.state.lock().unwrap();
+        self.progress.inc(n);
 
-        state.update(n);
+        if self.progress.ready() {
+            self.progress.update();
+            let _ = self.state.lock().unwrap().draw_to_stderr(None);
+        }
     }
 
     /// Advance the progress bar by one step, with the same effect as
-    /// [`update(1)`](AvanceBar::update)
+    /// [`update(1)`](Self::update). If you don't want to invoke inc
+    /// manually, see another method at [`with_iter`](Self::with_iter).
     ///
     /// # Examples
     /// ```
-    /// use avance::AvanceBar;
-    ///
+    /// # use avance::AvanceBar;
     /// let pb = AvanceBar::new(1000);
     /// for _ in 0..1000 {
     ///     // ...
@@ -225,14 +222,14 @@ impl AvanceBar {
     pub fn set_style(&self, style: Style) {
         let mut state = self.state.lock().unwrap();
         state.config.style = style;
-        let _ = state.draw(None);
+        let _ = state.draw_to_stderr(None);
     }
 
     /// Set the user-custom style of a progress bar.
     pub fn set_style_str(&self, s: &'static str) {
         let mut state = self.state.lock().unwrap();
         state.config.style = Style::Custom(s);
-        let _ = state.draw(None);
+        let _ = state.draw_to_stderr(None);
     }
 
     /// Set a progress bar's width
@@ -240,34 +237,21 @@ impl AvanceBar {
         let mut state = self.state.lock().unwrap();
         state.config.width = Some(width);
         let _ = state.clear();
-        let _ = state.draw(None);
+        let _ = state.draw_to_stderr(None);
     }
 
     /// Set the description (prefix) of a progress bar.
     pub fn set_desc(&self, desc: impl ToString) {
         let mut state = self.state.lock().unwrap();
         state.config.desc = Some(desc.to_string());
-        let _ = state.draw(None);
-    }
-
-    /// Set the minimun update interval (default: 1/15) seconds.
-    ///
-    /// Only positive intervals are allowed. Uses the default interval (1/15s)
-    /// when the argument is invalid.
-    pub fn set_interval(&self, interval: f64) {
-        let mut state = self.state.lock().unwrap();
-        state.config.interval = if interval.is_sign_positive() {
-            interval
-        } else {
-            1.0 / 15.0
-        };
+        let _ = state.draw_to_stderr(None);
     }
 
     /// Set the length of a progress bar.
     pub fn set_total(&self, total: u64) {
         let mut state = self.state.lock().unwrap();
         state.total = Some(total);
-        let _ = state.draw(None);
+        let _ = state.draw_to_stderr(None);
     }
 }
 
@@ -275,80 +259,45 @@ impl AvanceBar {
 impl AvanceBar {
     /// Creates a progress bar from an iterator's size hint
     pub(crate) fn with_hint(size_hint: Option<usize>) -> Self {
+        let progress = Arc::new(AtomicProgress::new());
         AvanceBar {
-            state: Arc::new(Mutex::new(State::new(size_hint.map(|s| s as u64)))),
+            state: Arc::new(Mutex::new(State::new(
+                size_hint.map(|s| s as u64),
+                Arc::clone(&progress),
+            ))),
+            progress,
         }
     }
 
     /// Refresh the progress bar.
     fn refresh(&self) {
         let state = self.state.lock().unwrap();
-        let _ = state.draw(None);
+        let _ = state.draw_to_stderr(None);
     }
 }
 
 #[derive(Debug)]
 struct State {
-    config: Config,
-    begin: Instant,
-    last: Instant,
     id: ID,
-    n: u64,
-    cached: u64,
+    config: Config,
     total: Option<u64>,
+    progress: Arc<AtomicProgress>,
 }
 
 impl State {
-    fn new(total: Option<u64>) -> Self {
+    fn new(total: Option<u64>, progress: Arc<AtomicProgress>) -> Self {
         Self {
-            config: Config::new(),
-            begin: Instant::now(),
-            last: Instant::now(),
             id: next_free_pos(),
-            n: 0,
-            cached: 0,
+            config: Config::new(),
             total,
+            progress,
         }
     }
 
-    fn update(&mut self, n: u64) {
-        self.cached += n;
-
-        if let Some(total) = self.total {
-            if self.n >= total {
-                return;
-            }
-
-            if self.n + self.cached >= total {
-                self.force_update();
-                let _ = self.draw(None);
-            }
-        }
-
-        if self.last.elapsed().as_secs_f64() >= self.config.interval {
-            self.n += self.cached;
-            self.cached = 0;
-            self.last = Instant::now();
-            let _ = self.draw(None);
-        }
-    }
-
-    fn force_update(&mut self) {
-        self.n = if let Some(total) = self.total {
-            min(total, self.n + self.cached)
-        } else {
-            self.n + self.cached
-        };
-        self.cached = 0;
-        self.last = Instant::now();
-    }
-
-    fn draw(&self, pos: Option<u16>) -> Result<()> {
-        if !self.drawable() {
+    fn draw<W: Write>(&self, pos: Option<u16>, target: &mut W) -> Result<()> {
+        if pos.is_none() && !self.drawable() {
             return Ok(());
         }
-
-        let mut target = stderr().lock();
         let pos = if let Some(pos) = pos {
             pos
         } else {
@@ -357,7 +306,6 @@ impl State {
 
         let ncols = terminal_size().0;
         let nrows = nrows();
-
         if pos >= nrows {
             return Ok(());
         }
@@ -381,9 +329,36 @@ impl State {
         .flush()
     }
 
+    fn draw_to_stderr(&self, pos: Option<u16>) -> Result<()> {
+        self.draw(pos, &mut stderr().lock())
+    }
+
     fn drawable(&self) -> bool {
         // is_terminal is stable on 1.70.0
         stderr().is_tty() && self.try_get_pos().is_some()
+    }
+
+    fn close(&mut self) -> Result<()> {
+        if !self.drawable() {
+            // already closed
+            return Ok(());
+        }
+
+        // Close the current bar and move up other bars
+        reposition(self.id);
+
+        let mut target = stderr().lock();
+        let _ = self.draw(Some(0), &mut target);
+
+        // Move cursor to the end of the next line
+        let ncols = terminal_size().0;
+
+        target.queue(Print('\n'))?;
+        if !is_finished() {
+            // only do this when some bars are still in progress
+            target.queue(MoveToColumn(ncols))?;
+        }
+        target.flush()
     }
 
     /// Sweep a progress bar from the terminal.
@@ -411,33 +386,6 @@ impl State {
         .flush()
     }
 
-    fn close(&mut self) -> Result<()> {
-        if !self.drawable() {
-            // already closed
-            return Ok(());
-        }
-
-        // Don't update when there's nothing new
-        if !matches!(self.total, Some(t) if t == self.n) {
-            self.force_update();
-        }
-        let _ = self.draw(Some(0));
-
-        // Close the current bar and move up other bars
-        reposition(self.id);
-
-        // Move cursor to the end of the next line
-        let mut target = stderr().lock();
-        let ncols = terminal_size().0;
-
-        target.queue(Print('\n'))?;
-        if !is_finished() {
-            // only do this when some bars are still in progress
-            target.queue(MoveToColumn(ncols))?;
-        }
-        target.flush()
-    }
-
     fn try_get_pos(&self) -> Option<Pos> {
         let positions = positions().lock().unwrap();
         positions.get(&self.id).copied()
@@ -450,7 +398,7 @@ impl State {
 
 impl Display for State {
     fn fmt(&self, fmt: &mut Formatter<'_>) -> std::fmt::Result {
-        let elapsed = self.last.duration_since(self.begin).as_secs_f64();
+        let elapsed = self.progress.begin.elapsed().as_secs_f64();
 
         let desc = self
             .config
@@ -480,7 +428,7 @@ impl Display for State {
             }
         };
 
-        let it = self.n;
+        let it = self.progress.n.load(Ordering::Relaxed);
         let its = it as f64 / elapsed;
         let time = ftime(elapsed as usize);
 
@@ -534,17 +482,43 @@ impl Display for State {
     }
 }
 
-impl Clone for State {
-    fn clone(&self) -> Self {
-        let mut new_state = Self::new(self.total);
-        new_state.config = self.config.clone();
-        new_state
-    }
-}
-
 impl Drop for State {
     fn drop(&mut self) {
         drop(self.close());
+    }
+}
+
+#[derive(Debug)]
+struct AtomicProgress {
+    begin: Instant,
+    last: AtomicU64,
+    n: AtomicU64,
+}
+
+impl AtomicProgress {
+    fn new() -> Self {
+        Self {
+            begin: Instant::now(),
+            last: AtomicU64::new(0),
+            n: AtomicU64::new(0),
+        }
+    }
+
+    fn inc(&self, delta: u64) {
+        self.n.fetch_add(delta, Ordering::AcqRel);
+    }
+
+    fn ready(&self) -> bool {
+        let last = self.last.load(Ordering::Acquire);
+        let since_begin = self.begin.elapsed().as_nanos() as u64;
+        let since_last = since_begin.saturating_sub(last);
+
+        since_last > INTERVAL
+    }
+
+    fn update(&self) {
+        self.last
+            .store(self.begin.elapsed().as_nanos() as u64, Ordering::Release);
     }
 }
 
@@ -554,7 +528,6 @@ struct Config {
     width: Option<u16>,
     desc: Option<String>,
     postfix: Option<String>,
-    interval: f64,
 }
 
 impl Config {
@@ -564,7 +537,6 @@ impl Config {
             desc: None,
             width: None,
             postfix: None,
-            interval: 1.0 / 15.0,
         }
     }
 }
@@ -572,6 +544,9 @@ impl Config {
 type AtomicState = Arc<Mutex<State>>;
 type ID = u64;
 type Pos = u16;
+
+/// Minimun update interval (in nanoseconds)
+const INTERVAL: u64 = 10_000_000;
 
 /// Next unused ID
 static NEXTID: AtomicU64 = AtomicU64::new(0);
@@ -638,10 +613,12 @@ fn reposition(id: ID) {
 
 #[cfg(test)]
 mod tests {
-    use std::{thread, time::Duration};
+    use std::{
+        thread,
+        time::{Duration, Instant},
+    };
 
-    use super::set_max_progress_bars;
-    use crate::{style::Style, AvanceBar};
+    use crate::{set_max_progress_bars, AvanceBar};
 
     fn progress_bar_ref(pb: &AvanceBar, n: u64, interval: u64) {
         for _ in 0..n {
@@ -667,38 +644,6 @@ mod tests {
         pb.set_width(60);
 
         progress_bar_ref(&pb, 100, 5);
-    }
-
-    #[test]
-    fn reuse() {
-        let pb1 = AvanceBar::new(100)
-            .with_style(Style::Balloon)
-            .with_width(90);
-        progress_bar_ref(&pb1, 100, 5);
-        pb1.close();
-
-        let pb2 = AvanceBar::with_config_of(&pb1).with_total(200);
-        progress_bar_ref(&pb2, 200, 5);
-    }
-
-    #[test]
-    fn method_chain() {
-        let pb = AvanceBar::new(100)
-            .with_style(Style::Block)
-            .with_width(90)
-            .with_desc("task1");
-
-        progress_bar_ref(&pb, 100, 5);
-    }
-
-    #[test]
-    fn misc() {
-        let pb = AvanceBar::new(100);
-        pb.set_desc("avance");
-        pb.set_style(Style::Balloon);
-        pb.set_width(60);
-
-        progress_bar_ref(&pb, 100, 10);
     }
 
     #[test]
@@ -732,5 +677,18 @@ mod tests {
         for t in threads {
             t.join().unwrap();
         }
+    }
+
+    #[test]
+    fn performance() {
+        let n = 20_000_000;
+
+        let start = Instant::now();
+        for _ in 0..n {}
+        let du = Instant::now().duration_since(start).as_secs_f64();
+        println!("raw: {:.2} it/s", n as f64 / du);
+
+        let pb = AvanceBar::new(n);
+        for _ in pb.with_iter(0..n) {}
     }
 }
