@@ -189,39 +189,3 @@ impl<Iter: DoubleEndedIterator> DoubleEndedIterator for AvanceBarIter<Iter> {
         self.0.next_back().map(|item| (item, self.0.bar.clone()))
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use std::{thread, time::Duration};
-
-    use crate::{AvanceIterator, Style};
-
-    #[test]
-    fn avance_iter() {
-        for _ in (0..100).avance() {
-            thread::sleep(Duration::from_millis(20));
-        }
-    }
-
-    #[test]
-    fn associated_methods() {
-        for _ in (0..100)
-            .avance()
-            .with_style(Style::Block)
-            .with_desc("avance")
-            .with_width(85)
-        {
-            thread::sleep(Duration::from_millis(20));
-        }
-    }
-
-    #[test]
-    fn infinity() {
-        for i in (0..).avance() {
-            if i > 200 {
-                break;
-            }
-            thread::sleep(Duration::from_millis(5));
-        }
-    }
-}

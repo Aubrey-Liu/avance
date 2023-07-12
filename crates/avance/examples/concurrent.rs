@@ -13,15 +13,9 @@ fn main() {
     std::thread::scope(|t| {
         for chunk in v.chunks_mut(total / 8) {
             t.spawn(|| {
-                for x in chunk {
-                    *x = 1;
-
-                    // Suppose we're doing some io tasks
+                pb1.with_iter(chunk.iter()).for_each(|_| {
                     thread::sleep(Duration::from_millis(3));
-
-                    // You can use one progress bar fearlessly in multiple threads
-                    pb1.inc();
-                }
+                })
             });
         }
     });

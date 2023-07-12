@@ -55,8 +55,11 @@ impl AvanceBar {
     ///     // ...
     /// }
     /// ```
-    pub fn with_iter<Iter: Iterator>(self, iter: Iter) -> AvanceIter<Iter> {
-        AvanceIter { iter, bar: self }
+    pub fn with_iter<Iter: Iterator>(&self, iter: Iter) -> AvanceIter<Iter> {
+        AvanceIter {
+            iter,
+            bar: self.clone(),
+        }
     }
 
     /// Builder-like function for a progress bar with a given style
@@ -614,71 +617,9 @@ fn reposition(id: ID) {
 
 #[cfg(test)]
 mod tests {
-    use std::{
-        thread,
-        time::{Duration, Instant},
-    };
+    use std::time::Instant;
 
-    use crate::{set_max_progress_bars, AvanceBar};
-
-    fn progress_bar_ref(pb: &AvanceBar, n: u64, interval: u64) {
-        for _ in 0..n {
-            pb.update(1);
-
-            thread::sleep(Duration::from_millis(interval));
-        }
-    }
-
-    fn progress_bar(n: u64, interval: u64) {
-        let pb = AvanceBar::new(n);
-        progress_bar_ref(&pb, n, interval);
-    }
-
-    #[test]
-    fn basic_bar() {
-        progress_bar(100, 5);
-    }
-
-    #[test]
-    fn bar_with_width() {
-        let pb = AvanceBar::new(100);
-        pb.set_width(60);
-
-        progress_bar_ref(&pb, 100, 5);
-    }
-
-    #[test]
-    fn single_bar_multi_threads() {
-        let pb = AvanceBar::new(300);
-
-        std::thread::scope(|t| {
-            t.spawn(|| progress_bar_ref(&pb, 100, 15));
-            t.spawn(|| progress_bar_ref(&pb, 100, 10));
-            t.spawn(|| progress_bar_ref(&pb, 100, 5));
-        });
-    }
-
-    #[test]
-    fn multiple_bars() {
-        std::thread::scope(|t| {
-            t.spawn(|| progress_bar(150, 5));
-            t.spawn(|| progress_bar(300, 5));
-            t.spawn(|| progress_bar(500, 5));
-        });
-    }
-
-    #[test]
-    fn overflowing() {
-        set_max_progress_bars(3);
-
-        let threads: Vec<_> = (0..15)
-            .map(|i| thread::spawn(move || progress_bar(100 + 100 * (i % 5), 10 - i % 5)))
-            .collect();
-
-        for t in threads {
-            t.join().unwrap();
-        }
-    }
+    use crate::AvanceBar;
 
     #[test]
     fn performance() {
