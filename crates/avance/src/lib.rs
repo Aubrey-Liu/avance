@@ -91,6 +91,7 @@
 //! - [ ] A Monitor for very slow progress bars
 
 pub mod bar;
+pub(crate) mod format;
 pub mod iter;
 pub mod style;
 

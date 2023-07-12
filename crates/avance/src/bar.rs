@@ -171,6 +171,15 @@ impl AvanceBar {
         self
     }
 
+    /// Builder-like function for displaying human readable numbers in a progress bar.
+    ///
+    /// If unit_scale (default: false) is set true, prints the number of iterations
+    /// with an appropriate SI metric prefix (k = 10^3, M = 10^6, etc.)
+    pub fn with_unit_scale(self, unit_scale: bool) -> Self {
+        self.set_unit_scale(unit_scale);
+        self
+    }
+
     /// Override the postfix of a progress bar.
     ///
     /// Postfix is usually used for **dynamically** displaying some
@@ -256,6 +265,12 @@ impl AvanceBar {
         let mut state = self.state.lock().unwrap();
         state.total = Some(total);
         let _ = state.draw_to_stderr(None);
+    }
+
+    /// If unit_scale (default: false) is set true, prints the number of iterations
+    /// with an appropriate SI metric prefix.
+    pub fn set_unit_scale(&self, unit_scale: bool) {
+        self.state.lock().unwrap().config.unit_scale = unit_scale;
     }
 }
 
@@ -402,14 +417,14 @@ impl State {
 
 impl Display for State {
     fn fmt(&self, fmt: &mut Formatter<'_>) -> std::fmt::Result {
-        let elapsed = self.progress.begin.elapsed().as_secs_f64();
+        use format::*;
 
+        let elapsed = self.progress.begin.elapsed().as_secs_f64();
         let desc = self
             .config
             .desc
             .as_ref()
             .map_or_else(String::new, |desc| format!("{}: ", desc));
-
         let postfix = self
             .config
             .postfix
@@ -422,38 +437,40 @@ impl Display for State {
             .width
             .map_or(terminal_width, |w| min(w, terminal_width));
 
-        // Time formatting function, which omits the leading 0s
-        let ftime = |seconds: usize| -> String {
-            let m = seconds / 60 % 60;
-            let s = seconds % 60;
-            match seconds / 3600 {
-                0 => format!("{:02}:{:02}", m, s),
-                h => format!("{:02}:{:02}:{:02}", h, m, s),
-            }
-        };
-
-        let it = self.progress.n.load(Ordering::Relaxed);
-        let its = it as f64 / elapsed;
-        let time = ftime(elapsed as usize);
+        let n = self.progress.n.load(Ordering::Relaxed);
+        let its = n as f64 / elapsed;
+        let time = format_time(elapsed as u64);
 
         match self.total {
             None => fmt.write_fmt(format_args!(
                 "{}{}it [{}, {:.02}it/s]{}",
-                desc, it, time, its, postfix
+                desc, n, time, its, postfix
             )),
 
             Some(total) => {
-                let pct = (it as f64 / total as f64).clamp(0.0, 1.0);
-                let eta = match it {
+                let pct = (n as f64 / total as f64).clamp(0.0, 1.0);
+                let eta = match n {
                     0 => String::from("?"),
-                    _ => ftime((elapsed / pct * (1. - pct)) as usize),
+                    _ => format_time((elapsed / pct * (1. - pct)) as u64),
                 };
 
-                let l_bar = format!("{}{:>3}%|", desc, (100.0 * pct) as usize);
-                let r_bar = format!(
-                    "| {}/{} [{}<{}, {:.02}it/s{}]",
-                    it, total, time, eta, its, postfix
-                );
+                let l_bar = format!("{}{:>3}%|", desc, (100.0 * pct) as u64);
+                let r_bar = if self.config.unit_scale {
+                    format!(
+                        "| {}/{} [{}<{}, {:.02}it/s{}]",
+                        format_sizeof(n),
+                        format_sizeof(total),
+                        time,
+                        eta,
+                        its,
+                        postfix
+                    )
+                } else {
+                    format!(
+                        "| {}/{} [{}<{}, {:.02}it/s{}]",
+                        n, total, time, eta, its, postfix
+                    )
+                };
 
                 let limit = (width as usize).saturating_sub(l_bar.len() + r_bar.len());
 
@@ -463,13 +480,14 @@ impl Display for State {
                 let (background, in_progress) = style[1..].split_last().unwrap();
 
                 let m = in_progress.len();
-                let n = ((limit as f64 * pct) * m as f64) as usize;
-                let n_filled = n / m;
+                let k = ((limit as f64 * pct) * m as f64) as usize;
+                let n_filled = k / m;
+                let current = k % m;
 
                 let mut bar = filled.to_string().repeat(n_filled);
 
                 if n_filled < limit {
-                    bar.push(in_progress[n % m]);
+                    bar.push(in_progress[current]);
                 }
 
                 // Unicode width is not considered at the moment
@@ -532,6 +550,7 @@ struct Config {
     width: Option<u16>,
     desc: Option<Cow<'static, str>>,
     postfix: Option<Cow<'static, str>>,
+    unit_scale: bool,
 }
 
 impl Config {
@@ -541,6 +560,7 @@ impl Config {
             desc: None,
             width: None,
             postfix: None,
+            unit_scale: false,
         }
     }
 }
