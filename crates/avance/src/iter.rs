@@ -87,6 +87,13 @@ impl<Iter: Iterator> AvanceIter<Iter> {
         self
     }
 
+    /// Displaying numbers in a human readable format, using SI metric prefix
+    /// (k = 10^3, M = 10^6, etc.)
+    pub fn with_unit_scale(self, unit_scale: bool) -> Self {
+        self.bar.set_unit_scale(unit_scale);
+        self
+    }
+
     /// Set a progress bar's width
     ///
     /// See [AvanceBar::with_width]

@@ -43,6 +43,35 @@ impl AvanceBar {
         pb
     }
 
+    /// Build a new progress bar from the config of another progress bar.
+    /// Only the configs and length of the old progress bar will be retained.
+    ///
+    /// # Examples
+    /// ```     
+    /// # use avance::{AvanceBar, Style};  
+    /// let pb1 = AvanceBar::new(100)
+    ///     .with_style(Style::Balloon)
+    ///     .with_width(90)
+    ///     .with_desc("task1");
+    /// // Reuse the style and width of pb1, but
+    /// // change the description and length.
+    /// let pb2 = AvanceBar::with_config_of(&pb1)
+    ///     .with_total(200)
+    ///     .with_desc("task2");
+    /// ```
+    pub fn with_config_of(pb: &AvanceBar) -> Self {
+        let old_state = pb.state.lock().unwrap();
+        let progress = Arc::new(AtomicProgress::new());
+        let mut new_state = State::new(old_state.total, Arc::clone(&progress));
+        new_state.config = old_state.config.clone();
+        let new_pb = AvanceBar {
+            state: Arc::new(Mutex::new(new_state)),
+            progress,
+        };
+        new_pb.refresh();
+        new_pb
+    }
+
     /// Wrap an iterator to display its progress.
     ///
     /// See another way of progressing with an iterator at [`AvancesIterator`](crate::AvanceIterator)
@@ -116,40 +145,11 @@ impl AvanceBar {
     /// # Examples
     /// ```
     /// # use avance::AvanceBar;
-    /// let pb = AvanceBar::new(1000).with_desc("my task");
+    /// let pb = AvanceBar::new(1000).with_desc("task name");
     /// ```
     pub fn with_desc(self, desc: impl Into<Cow<'static, str>>) -> Self {
         self.set_desc(desc);
         self
-    }
-
-    /// Build a new progress bar with configs of another progress bar.
-    /// Only the configs and length of the old progress bar will be retained.
-    ///
-    /// # Examples
-    /// ```     
-    /// # use avance::{AvanceBar, Style};  
-    /// let pb1 = AvanceBar::new(100)
-    ///     .with_style(Style::Balloon)
-    ///     .with_width(90)
-    ///     .with_desc("task1");
-    /// // Reuse the style and width of pb1, but
-    /// // change the description and length.
-    /// let pb2 = AvanceBar::with_config_of(&pb1)
-    ///     .with_total(200)
-    ///     .with_desc("task2");
-    /// ```
-    pub fn with_config_of(pb: &AvanceBar) -> Self {
-        let old_state = pb.state.lock().unwrap();
-        let progress = Arc::new(AtomicProgress::new());
-        let mut new_state = State::new(old_state.total, Arc::clone(&progress));
-        new_state.config = old_state.config.clone();
-        let new_pb = AvanceBar {
-            state: Arc::new(Mutex::new(new_state)),
-            progress,
-        };
-        new_pb.refresh();
-        new_pb
     }
 
     /// Builder-like function for a progress bar with length
@@ -198,8 +198,8 @@ impl AvanceBar {
         self.progress.inc(n);
 
         if self.progress.ready() {
-            self.progress.update();
             let _ = self.state.lock().unwrap().draw_to_stderr(None);
+            self.progress.update();
         }
     }
 
@@ -367,6 +367,9 @@ impl State {
         reposition(self.id);
 
         let mut target = stderr().lock();
+
+        // force update (only displaying average its)
+        self.progress.update();
         let _ = self.draw(Some(0), &mut target);
 
         // Move cursor to the end of the next line
@@ -438,7 +441,16 @@ impl Display for State {
             .map_or(terminal_width, |w| min(w, terminal_width));
 
         let n = self.progress.n.load(Ordering::Relaxed);
-        let its = n as f64 / elapsed;
+        let last_n = self.progress.last.load(Ordering::Relaxed);
+        let since_last = self.progress.since_last() as f64 / 1e9;
+
+        // smoothing
+        let factor = 0.7;
+        let its = match n - last_n {
+            0 => n as f64 / elapsed,
+            gap => (n as f64 / elapsed) * factor + (gap as f64 / since_last) * (1.0 - factor),
+        };
+
         let time = format_time(elapsed as u64);
 
         match self.total {
@@ -455,8 +467,8 @@ impl Display for State {
                 };
 
                 let l_bar = format!("{}{:>3}%|", desc, (100.0 * pct) as u64);
-                let r_bar = if self.config.unit_scale {
-                    format!(
+                let r_bar = match self.config.unit_scale {
+                    true => format!(
                         "| {}/{} [{}<{}, {:.02}it/s{}]",
                         format_sizeof(n),
                         format_sizeof(total),
@@ -464,14 +476,12 @@ impl Display for State {
                         eta,
                         its,
                         postfix
-                    )
-                } else {
-                    format!(
+                    ),
+                    false => format!(
                         "| {}/{} [{}<{}, {:.02}it/s{}]",
                         n, total, time, eta, its, postfix
-                    )
+                    ),
                 };
-
                 let limit = (width as usize).saturating_sub(l_bar.len() + r_bar.len());
 
                 let style: Vec<_> = self.config.style.as_ref().chars().collect();
@@ -513,6 +523,7 @@ impl Drop for State {
 #[derive(Debug)]
 struct AtomicProgress {
     begin: Instant,
+    prev: AtomicU64,
     last: AtomicU64,
     n: AtomicU64,
 }
@@ -521,6 +532,7 @@ impl AtomicProgress {
     fn new() -> Self {
         Self {
             begin: Instant::now(),
+            prev: AtomicU64::new(0),
             last: AtomicU64::new(0),
             n: AtomicU64::new(0),
         }
@@ -531,16 +543,20 @@ impl AtomicProgress {
     }
 
     fn ready(&self) -> bool {
-        let last = self.last.load(Ordering::Acquire);
-        let since_begin = self.begin.elapsed().as_nanos() as u64;
-        let since_last = since_begin.saturating_sub(last);
-
-        since_last > INTERVAL
+        self.since_last() > INTERVAL
     }
 
     fn update(&self) {
-        self.last
+        self.prev
             .store(self.begin.elapsed().as_nanos() as u64, Ordering::Release);
+        self.last
+            .store(self.n.load(Ordering::Acquire), Ordering::Release);
+    }
+
+    fn since_last(&self) -> u64 {
+        let prev = self.prev.load(Ordering::Acquire);
+        let since_begin = self.begin.elapsed().as_nanos() as u64;
+        since_begin.saturating_sub(prev)
     }
 }
 
@@ -570,7 +586,7 @@ type ID = u64;
 type Pos = u16;
 
 /// Minimun update interval (in nanoseconds)
-const INTERVAL: u64 = 10_000_000;
+const INTERVAL: u64 = 100_000_000;
 
 /// Next unused ID
 static NEXTID: AtomicU64 = AtomicU64::new(0);
