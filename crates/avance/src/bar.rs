@@ -43,7 +43,7 @@ impl AvanceBar {
         pb
     }
 
-    /// Build a new progress bar from the config of another progress bar.
+    /// Build a new progress bar from the template of another progress bar.
     /// Only the configs and length of the old progress bar will be retained.
     ///
     /// # Examples
@@ -55,21 +55,15 @@ impl AvanceBar {
     ///     .with_desc("task1");
     /// // Reuse the style and width of pb1, but
     /// // change the description and length.
-    /// let pb2 = AvanceBar::with_config_of(&pb1)
-    ///     .with_total(200)
+    /// let pb2 = AvanceBar::new(200)
+    ///     .with_template_of(&pb1)
     ///     .with_desc("task2");
     /// ```
-    pub fn with_config_of(pb: &AvanceBar) -> Self {
+    pub fn with_template_of(self, pb: &AvanceBar) -> Self {
         let old_state = pb.state.lock().unwrap();
-        let progress = Arc::new(AtomicProgress::new());
-        let mut new_state = State::new(old_state.total, Arc::clone(&progress));
-        new_state.config = old_state.config.clone();
-        let new_pb = AvanceBar {
-            state: Arc::new(Mutex::new(new_state)),
-            progress,
-        };
-        new_pb.refresh();
-        new_pb
+        self.state.lock().unwrap().template = old_state.template.clone();
+        self.refresh();
+        self
     }
 
     /// Wrap an iterator to display its progress.
@@ -152,25 +146,6 @@ impl AvanceBar {
         self
     }
 
-    /// Builder-like function for a progress bar with length
-    ///
-    /// Useful when you reuse some configs of another progress bar,
-    /// but want to change the length.
-    ///
-    /// # Examples
-    /// ```
-    /// # use avance::{AvanceBar, Style};
-    /// let pb1 = AvanceBar::new(100)
-    ///    .with_style(Style::Balloon)
-    ///    .with_width(90);
-    /// // Reuse pb1's config, but override the length.
-    /// let pb2 = AvanceBar::with_config_of(&pb1).with_total(200);
-    /// ```
-    pub fn with_total(self, total: u64) -> Self {
-        self.set_total(total);
-        self
-    }
-
     /// Builder-like function for displaying human readable numbers in a progress bar.
     ///
     /// If unit_scale (default: false) is set true, prints the number of iterations
@@ -189,7 +164,7 @@ impl AvanceBar {
     /// progressing with an iterator.
     pub fn set_postfix(&self, postfix: impl Into<Cow<'static, str>>) {
         let mut state = self.state.lock().unwrap();
-        state.config.postfix = Some(postfix.into());
+        state.template.postfix = Some(postfix.into());
         let _ = state.draw_to_stderr(None);
     }
 
@@ -234,21 +209,21 @@ impl AvanceBar {
     /// Set the style (default: [`Style::ASCII`]) of a progress bar.
     pub fn set_style(&self, style: Style) {
         let mut state = self.state.lock().unwrap();
-        state.config.style = style;
+        state.template.style = style;
         let _ = state.draw_to_stderr(None);
     }
 
     /// Set the user-custom style of a progress bar.
     pub fn set_style_str(&self, s: impl Into<Cow<'static, str>>) {
         let mut state = self.state.lock().unwrap();
-        state.config.style = Style::Custom(s.into());
+        state.template.style = Style::Custom(s.into());
         let _ = state.draw_to_stderr(None);
     }
 
     /// Set a progress bar's width
     pub fn set_width(&self, width: u16) {
         let mut state = self.state.lock().unwrap();
-        state.config.width = Some(width);
+        state.template.width = Some(width);
         let _ = state.clear();
         let _ = state.draw_to_stderr(None);
     }
@@ -256,21 +231,14 @@ impl AvanceBar {
     /// Set the description (prefix) of a progress bar.
     pub fn set_desc(&self, desc: impl Into<Cow<'static, str>>) {
         let mut state = self.state.lock().unwrap();
-        state.config.desc = Some(desc.into());
-        let _ = state.draw_to_stderr(None);
-    }
-
-    /// Set the length of a progress bar.
-    pub fn set_total(&self, total: u64) {
-        let mut state = self.state.lock().unwrap();
-        state.total = Some(total);
+        state.template.desc = Some(desc.into());
         let _ = state.draw_to_stderr(None);
     }
 
     /// If unit_scale (default: false) is set true, prints the number of iterations
     /// with an appropriate SI metric prefix.
     pub fn set_unit_scale(&self, unit_scale: bool) {
-        self.state.lock().unwrap().config.unit_scale = unit_scale;
+        self.state.lock().unwrap().template.unit_scale = unit_scale;
     }
 }
 
@@ -298,18 +266,18 @@ impl AvanceBar {
 #[derive(Debug)]
 struct State {
     id: ID,
-    config: Config,
-    total: Option<u64>,
     progress: Arc<AtomicProgress>,
+    template: Template,
+    total: Option<u64>,
 }
 
 impl State {
     fn new(total: Option<u64>, progress: Arc<AtomicProgress>) -> Self {
         Self {
             id: next_free_pos(),
-            config: Config::new(),
-            total,
             progress,
+            template: Template::new(),
+            total,
         }
     }
 
@@ -424,19 +392,19 @@ impl Display for State {
 
         let elapsed = self.progress.begin.elapsed().as_secs_f64();
         let desc = self
-            .config
+            .template
             .desc
             .as_ref()
             .map_or_else(String::new, |desc| format!("{}: ", desc));
         let postfix = self
-            .config
+            .template
             .postfix
             .as_ref()
             .map_or_else(String::new, |p| format!(", {}", p));
 
         let terminal_width = terminal::size().map_or(80, |(c, _)| c);
         let width = self
-            .config
+            .template
             .width
             .map_or(terminal_width, |w| min(w, terminal_width));
 
@@ -467,7 +435,7 @@ impl Display for State {
                 };
 
                 let l_bar = format!("{}{:>3}%|", desc, (100.0 * pct) as u64);
-                let r_bar = match self.config.unit_scale {
+                let r_bar = match self.template.unit_scale {
                     true => format!(
                         "| {}/{} [{}<{}, {:.02}it/s{}]",
                         format_sizeof(n),
@@ -484,7 +452,7 @@ impl Display for State {
                 };
                 let limit = (width as usize).saturating_sub(l_bar.len() + r_bar.len());
 
-                let style: Vec<_> = self.config.style.as_ref().chars().collect();
+                let style: Vec<_> = self.template.style.as_ref().chars().collect();
 
                 let filled = style[0];
                 let (background, in_progress) = style[1..].split_last().unwrap();
@@ -561,22 +529,22 @@ impl AtomicProgress {
 }
 
 #[derive(Debug, Clone)]
-struct Config {
+struct Template {
     style: Style,
     width: Option<u16>,
     desc: Option<Cow<'static, str>>,
-    postfix: Option<Cow<'static, str>>,
     unit_scale: bool,
+    postfix: Option<Cow<'static, str>>,
 }
 
-impl Config {
+impl Template {
     fn new() -> Self {
         Self {
-            style: Style::default(),
-            desc: None,
+            style: Default::default(),
             width: None,
-            postfix: None,
+            desc: None,
             unit_scale: false,
+            postfix: None,
         }
     }
 }

@@ -23,7 +23,8 @@ fn main() {
 
     std::thread::scope(|t| {
         t.spawn(|| {
-            AvanceBar::with_config_of(&pb1)
+            AvanceBar::new(total as u64)
+                .with_template_of(&pb1)
                 .with_desc("1 worker")
                 .with_iter(v.iter_mut())
                 .for_each(|x| {
