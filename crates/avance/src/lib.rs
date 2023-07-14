@@ -87,8 +87,8 @@
 //! ```
 //!
 //! # TODOs:
-//! - [ ] A progress bar for io pipes
-//! - [ ] A Monitor for very slow progress bars
+//! - [ ] A monitor for very slow progress bars
+//! - [ ] A convenient template for customizing progress bars
 
 pub mod bar;
 pub(crate) mod format;

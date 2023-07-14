@@ -553,15 +553,15 @@ type AtomicState = Arc<Mutex<State>>;
 type ID = u64;
 type Pos = u16;
 
-/// Minimun update interval (in nanoseconds)
+// Minimun update interval (in nanoseconds)
 const INTERVAL: u64 = 100_000_000;
 
-/// Next unused ID
+// Next unused ID
 static NEXTID: AtomicU64 = AtomicU64::new(0);
-/// How many rows are progress bars allowed to use. If unspecified,
-/// use the terminal height.
+// How many rows are progress bars allowed to use. If unspecified,
+// use the terminal height.
 static NROWS: AtomicU16 = AtomicU16::new(0);
-/// Book-keeping the positions of all bars.
+// Book-keeping the positions of all bars.
 static POSITIONS: OnceLock<Mutex<HashMap<ID, Pos>>> = OnceLock::new();
 
 /// Set how many on-going progress bar can be shown on the screen.
@@ -577,6 +577,7 @@ fn positions() -> &'static Mutex<HashMap<ID, Pos>> {
     POSITIONS.get_or_init(|| Mutex::new(HashMap::new()))
 }
 
+// Whether all progress bars are closed or not
 fn is_finished() -> bool {
     positions().lock().unwrap().is_empty()
 }
